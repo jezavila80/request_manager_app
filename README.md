@@ -8,6 +8,18 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ---
 
+## Versión actual
+
+**0.1.1+3**
+
+Estado actual:
+- Base del proyecto y Design System completados.
+- Modelo Publication implementado y probado.
+- Persistencia SQLite v1 implementada.
+- Tabla publications y constraints validados.
+
+---
+
 ## 1. Identificación del Proyecto
 
 | Parámetro | Detalle |
@@ -293,4 +305,610 @@ lib/
 > Antes de crear colores, estilos, botones, tarjetas, badges o componentes nuevos, comprobar si ya existe un equivalente reutilizable en `lib/core/`.
 > 
 > Si una futura pantalla necesita una variante visual nueva, se debe **extender el sistema de diseño** en `core` en lugar de implementar la variante únicamente dentro de esa pantalla.
+
+---
+
+## 14. Modelo de Dominio de Publicaciones
+
+El modelo de dominio `Publication` representa una publicación o elemento de literatura (libro, revista, folleto, etc.) en el catálogo central de la aplicación. Sirve como fuente de datos centralizada para pedidos, recepciones e inventarios.
+
+### 📐 Campos del Modelo
+
+* **`id` (`int?`):** Identificador interno único. Puede ser `null` antes de persistirse en la base de datos local SQLite.
+* **`code` (`String?`):** Código de catálogo de la publicación (ej. `RL-12`, `W26-1`). Puede ser `null` durante un `DRAFT` y es obligatorio para una publicación `COMPLETE`.
+* **`name` (`String`):** Nombre descriptivo de la publicación. Obligatorio (no se aceptan cadenas vacías o con puros espacios).
+* **`description` (`String?`):** Información complementaria o descripción operativa para búsqueda en borradores rápidos.
+* **`type` (`String?`):** Tipo de publicación (Libro, Revista, Folleto, etc.). Puede ser `null` en un `DRAFT` y obligatorio para `COMPLETE`.
+* **`size` (`TriStateValue<String>`):** Representación del tamaño/formato físico.
+* **`version` (`TriStateValue<String>`):** Variante o edición de la publicación.
+* **`isActive` (`bool`):** Permite desactivar/activar publicaciones del catálogo sin borrarlas físicamente. Por defecto es `true`.
+* **`createdAt` (`DateTime`):** Fecha de creación del registro.
+* **`updatedAt` (`DateTime`):** Fecha de la última modificación del registro.
+
+### 🔄 Representación de Tamaño y Versión (`TriStateValue`)
+
+Para evitar la ambigüedad de usar únicamente `null`, las propiedades `size` y `version` se encapsulan en el tipo `TriStateValue<String>`, que soporta exactamente tres estados semánticos:
+1. **`SIN DEFINIR` (`TriState.sinDefinir`):** Aún no se conoce el dato y debe investigarse.
+2. **`NO APLICA` (`TriState.noAplica`):** El atributo no corresponde a este tipo de publicación.
+3. **`CON VALOR` (`TriState.conValor`):** Contiene una cadena de texto específica no vacía.
+
+### ⚡ Estados de Completitud (`DRAFT` / `COMPLETE`)
+
+El estado de una publicación se calcula dinámicamente según la presencia de sus campos esenciales:
+* **`COMPLETE`:** Cuando se cuenta con `code`, `name` y `type` válidos (no nulos ni vacíos).
+* **`DRAFT`:** Si falta cualquiera de los tres campos esenciales anteriores.
+
+Exponiéndose a través de la propiedad calculada `status`.
+
+### 🚀 Flujo de Evolución de la Entidad y Registro Rápido
+
+* **Evolución Inmutable:** La transición de un borrador (`DRAFT`) a una publicación completa (`COMPLETE`) se realiza mediante inmutabilidad y el método `copyWith`, conservando exactamente el mismo identificador de registro (`id`) para mantener la integridad en pedidos históricos y stock.
+* **Registro Rápido en Pedidos (`quickDraft`):** Permite crear borradores rápidos sobre la marcha con solo suministrar un `name` y una `description` operativos. La descripción es obligatoria en este contexto para facilitar la localización posterior de la publicación real en catálogos externos.
+
+---
+
+## 15. Persistencia SQLite Inicial
+
+Se ha implementado la infraestructura inicial de base de datos relacional local basada en **SQLite** utilizando el paquete `sqflite` y `path`.
+
+### ⚙️ Configuración y Estructura
+* **Base de datos:** `request_manager.db`
+* **Versión inicial:** `1`
+* **Localización del código:**
+  * `lib/core/database/app_database.dart`: Singleton que expone la conexión, administra el ciclo de vida y facilita hooks aislados para testing.
+  * `lib/core/database/database_constants.dart`: Constantes centralizadas para la base de datos (nombre de tablas, columnas y valores de estado).
+  * `lib/core/database/migrations/migration_v1.dart`: Definición del esquema inicial (versión 1) con soporte para futuras migraciones.
+
+### 📊 Tabla `publications`
+La persistencia de publicaciones se modela mapeando el estado de tamaño (`size`) y versión (`version`) a dos columnas cada uno (`state` y `value`). El estado `status` (`DRAFT` / `COMPLETE`) de una publicación es conceptual y calculado dinámicamente en memoria, por lo que **no** se almacena una columna independiente.
+
+#### Esquema de Restricciones (Constraints)
+Para proteger la integridad de los datos a nivel de base de datos, se aplican las siguientes reglas:
+* **Nombre obligatorio:** `CHECK (TRIM(name) <> '')`
+* **Código opcional pero único:** Permite múltiples borradores (`DRAFT`) sin código (`code = NULL`), pero si se suministra un código, éste debe ser único de manera **case-insensitive** mediante un índice parcial:
+  ```sql
+  CREATE UNIQUE INDEX idx_publications_code_unique
+  ON publications(code COLLATE NOCASE)
+  WHERE code IS NOT NULL AND TRIM(code) <> '';
+  ```
+* **Coherencia del tamaño (`size`) y versión (`version`):**
+  * Los estados de tamaño y versión están restringidos a `undefined`, `value` o `not_applicable`.
+  * Si el estado es `value`, el valor no puede ser nulo ni vacío.
+  * Si el estado es `undefined` o `not_applicable`, el valor asociado debe ser estrictamente `NULL`.
+* **Estado activo/inactivo (`is_active`):** Almacenado como entero (`0` para inactivo, `1` para activo) bajo la restricción `CHECK (is_active IN (0, 1))`.
+* **Fechas:** Almacenadas en formato de texto ISO-8601, lo cual permite realizar conversiones y filtros temporales de manera nativa en Dart (`DateTime.parse`).
+
+---
+
+# Roadmap del proyecto
+
+El roadmap debe reflejar el alcance actualmente definido y funcionar como documento vivo de avance.
+
+## Reglas generales del roadmap
+
+* Usar checklist Markdown con `- [ ]` para tareas pendientes.
+* Cambiar a `- [x]` únicamente cuando una tarea haya sido realmente completada y validada.
+* No marcar tareas como completadas solo porque hayan sido iniciadas.
+* Cada fase debe tener un objetivo claro.
+* Mantener las fases en orden lógico de implementación.
+* No eliminar funcionalidades ya definidas.
+* Si durante el desarrollo aparecen nuevas necesidades, agregar o reorganizar tareas sin perder el historial del alcance.
+* Si una funcionalidad cambia, actualizar el roadmap y la documentación asociada.
+* El roadmap debe servir tanto para conocer el alcance proyectado como el avance real del proyecto.
+* Evitar agregar funcionalidades no acordadas.
+
+---
+
+# Roadmap inicial
+
+## Fase 0 — Base del proyecto y documentación
+
+### Estado: COMPLETADA
+
+### Objetivo
+
+Establecer la estructura técnica, documentación inicial y sistema visual que utilizará toda la aplicación.
+
+### Tareas
+
+* [x] Crear o validar el proyecto Flutter `request_manager_app`.
+* [x] Configurar Android como plataforma inicial.
+* [x] Confirmar que la aplicación compile y ejecute correctamente.
+* [x] Mantener el `README.md` como documento principal del proyecto.
+* [x] Documentar propósito y reglas generales de negocio.
+* [x] Documentar el flujo Pedido → Recepción → Existencia local → Surtido.
+* [x] Implementar el sistema visual base seleccionado: **Moderno y Limpio — Propuesta 1**.
+* [x] Centralizar `ThemeData`, colores, tipografía y espaciados.
+* [x] Crear los componentes visuales reutilizables necesarios.
+* [x] Establecer que las nuevas vistas utilicen el sistema de diseño común.
+* [x] Ejecutar `flutter analyze` sin errores relevantes.
+
+---
+
+## Fase 1 — Catálogo de publicaciones
+
+### Estado: EN PROGRESO
+
+### Objetivo
+
+Crear una fuente única de publicaciones que pueda reutilizarse en pedidos, inventario y recepciones.
+
+### Modelo inicial
+
+Cada publicación podrá contener:
+
+* Código.
+* Nombre.
+* Tipo.
+* Tamaño.
+* Versión.
+* Estado activo/inactivo si posteriormente resulta necesario.
+
+### Tareas
+
+* [x] Diseñar el modelo `Publication`.
+* [x] Crear la tabla SQLite correspondiente.
+* [ ] Crear acceso local para registrar publicaciones.
+* [ ] Crear acceso local para consultar publicaciones.
+* [ ] Permitir búsqueda por nombre.
+* [ ] Permitir búsqueda por código.
+* [ ] Evitar duplicados evidentes.
+* [ ] Crear una vista básica del catálogo si resulta necesaria.
+* [ ] Validar persistencia después de reiniciar la aplicación.
+
+---
+
+## Fase 2 — Registro de pedidos
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Permitir crear un pedido para un solicitante y agregar múltiples publicaciones dentro de la misma solicitud.
+
+### Reglas
+
+Un pedido:
+
+* Pertenece a un solicitante.
+* Tiene una fecha de creación/pedido.
+* Puede contener múltiples publicaciones.
+* No contiene precios.
+* Agrupa publicaciones solicitadas en la misma fecha.
+* Una solicitud realizada posteriormente debe generar un nuevo pedido.
+
+### Tareas
+
+* [ ] Diseñar el modelo `Request`.
+* [ ] Diseñar el modelo `RequestItem`.
+* [ ] Crear las tablas SQLite necesarias.
+* [ ] Crear la vista **Nuevo pedido**.
+* [ ] Permitir capturar solicitante.
+* [ ] Permitir capturar la fecha del pedido.
+* [ ] Permitir agregar múltiples artículos.
+* [ ] Capturar cantidad solicitada por artículo.
+* [ ] Permitir eliminar un artículo antes de guardar el pedido.
+* [ ] Validar que el pedido contenga al menos un artículo.
+* [ ] Guardar pedido y artículos de manera consistente.
+* [ ] Evitar guardar pedidos parcialmente persistidos en caso de error.
+
+---
+
+## Fase 3 — Autocompletado de publicaciones
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Agilizar la captura de pedidos reutilizando publicaciones previamente registradas.
+
+### Comportamiento esperado
+
+Al escribir parte del nombre o código de una publicación deben mostrarse coincidencias.
+
+Ejemplo:
+
+```text
+Usuario escribe:
+fol
+
+Sugerencias:
+Folleto
+Folleto informativo
+Folleto tamaño carta
+```
+
+También debe ser posible buscar por código:
+
+```text
+rl
+
+RL-12 — Folleto
+RL-18 — Revista
+```
+
+### Tareas
+
+* [ ] Implementar búsqueda incremental.
+* [ ] Mostrar sugerencias mientras el usuario escribe.
+* [ ] Buscar por nombre.
+* [ ] Buscar por código.
+* [ ] Seleccionar una publicación existente.
+* [ ] Autocompletar código, nombre, tipo, tamaño y versión.
+* [ ] Mantener la cantidad solicitada como dato propio del pedido.
+* [ ] Permitir registrar una nueva publicación cuando no existan coincidencias.
+* [ ] Incorporar la nueva publicación al catálogo.
+* [ ] Hacer que quede disponible para futuros pedidos.
+
+---
+
+## Fase 4 — Consulta y detalle de pedidos
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Permitir consultar los pedidos creados y visualizar claramente su información.
+
+### Tareas
+
+* [ ] Crear vista de lista de pedidos.
+* [ ] Mostrar número o identificador del pedido.
+* [ ] Mostrar solicitante.
+* [ ] Mostrar fecha.
+* [ ] Mostrar estado.
+* [ ] Permitir abrir el detalle.
+* [ ] Mostrar todas las publicaciones del pedido.
+* [ ] Mostrar cantidad solicitada por publicación.
+* [ ] Preparar visualmente cantidad surtida y pendiente.
+* [ ] Implementar estados visuales reutilizando `StatusBadge`.
+* [ ] Manejar estados vacío, loading y error.
+
+---
+
+## Fase 5 — Recepción de publicaciones
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Registrar la llegada física de publicaciones al departamento.
+
+### Regla fundamental
+
+Toda publicación recibida entra primero a **existencia local**.
+
+Una recepción NO debe marcar automáticamente un pedido como surtido.
+
+### Flujo
+
+```text
+Recepción
+   ↓
+Existencia local aumenta
+```
+
+### Tareas
+
+* [ ] Crear el modelo de movimientos de inventario.
+* [ ] Definir el tipo de movimiento `RECEIPT`.
+* [ ] Crear tabla SQLite de movimientos.
+* [ ] Crear la vista **Registrar recepción**.
+* [ ] Buscar/seleccionar publicación desde el catálogo.
+* [ ] Registrar cantidad recibida.
+* [ ] Registrar fecha de recepción.
+* [ ] Generar movimiento positivo de inventario.
+* [ ] Validar que la existencia local aumente correctamente.
+* [ ] Conservar historial de recepciones.
+
+---
+
+## Fase 6 — Existencia local
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Mostrar y controlar las cantidades físicamente disponibles de cada publicación.
+
+### Regla
+
+La existencia local debe poder explicarse mediante movimientos.
+
+Conceptualmente:
+
+```text
+Existencia =
+Entradas
+-
+Salidas
+```
+
+### Tareas
+
+* [ ] Crear vista de inventario local.
+* [ ] Mostrar código y nombre de publicación.
+* [ ] Mostrar cantidad disponible.
+* [ ] Permitir búsqueda.
+* [ ] Calcular correctamente la existencia.
+* [ ] Mostrar publicaciones sin existencia cuando sea útil.
+* [ ] Crear vista de historial de movimientos.
+* [ ] Distinguir entradas y salidas.
+* [ ] Mantener trazabilidad.
+
+---
+
+## Fase 7 — Surtido de pedidos desde existencia local
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Permitir utilizar material físicamente disponible para atender total o parcialmente un pedido.
+
+### Regla fundamental
+
+Un pedido solo se considera surtido cuando unidades de existencia local son asignadas o entregadas al pedido.
+
+El surtido:
+
+```text
+Pedido recibe unidades
+        +
+Existencia local disminuye
+```
+
+### Tareas
+
+* [ ] Definir el tipo de movimiento `FULFILLMENT`.
+* [ ] Permitir seleccionar un artículo pendiente de un pedido.
+* [ ] Mostrar cantidad solicitada.
+* [ ] Mostrar cantidad ya surtida.
+* [ ] Mostrar cantidad pendiente.
+* [ ] Mostrar existencia local disponible.
+* [ ] Permitir capturar cantidad a surtir.
+* [ ] Impedir surtir más unidades de las disponibles.
+* [ ] Impedir surtir más unidades de las pendientes salvo regla futura explícita.
+* [ ] Registrar la fecha del surtido.
+* [ ] Generar una salida de inventario.
+* [ ] Asociar la salida al pedido y al artículo.
+* [ ] Actualizar automáticamente cantidades surtidas.
+* [ ] Mantener historial de surtidos.
+
+---
+
+## Fase 8 — Surtidos parciales y estados automáticos
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Controlar correctamente pedidos que se atienden en diferentes momentos.
+
+### Estados por artículo
+
+```text
+Surtido = 0
+→ Pendiente
+
+Surtido > 0 y Surtido < Solicitado
+→ Parcialmente surtido
+
+Surtido >= Solicitado
+→ Surtido
+```
+
+### Estados del pedido
+
+* Pendiente.
+* Parcialmente surtido.
+* Surtido.
+
+### Tareas
+
+* [ ] Calcular estado de cada artículo.
+* [ ] Calcular estado general del pedido.
+* [ ] Evitar depender de estados manuales cuando puedan derivarse de datos.
+* [ ] Mostrar estados mediante badges.
+* [ ] Mostrar cantidad solicitada.
+* [ ] Mostrar cantidad surtida.
+* [ ] Mostrar cantidad pendiente.
+* [ ] Conservar múltiples eventos de surtido.
+* [ ] Mostrar historial cronológico.
+
+---
+
+## Fase 9 — Dashboard e indicadores
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Crear una pantalla inicial que permita conocer rápidamente la situación general.
+
+### Indicadores propuestos
+
+* Pedidos pendientes.
+* Pedidos parcialmente surtidos.
+* Pedidos surtidos.
+* Pedidos recientes.
+
+### Tareas
+
+* [ ] Crear pantalla Inicio.
+* [ ] Mostrar resumen de pedidos.
+* [ ] Mostrar pedidos recientes.
+* [ ] Permitir acceso rápido a Nuevo pedido.
+* [ ] Permitir acceso rápido a Recepciones.
+* [ ] Permitir acceso rápido a Inventario.
+* [ ] Mantener el estilo visual definido en la Propuesta 1.
+
+---
+
+## Fase 10 — Validaciones, estabilidad y experiencia de usuario
+
+### Estado: PENDIENTE
+
+### Objetivo
+
+Fortalecer el comportamiento de la aplicación antes de considerar una primera versión estable.
+
+### Tareas
+
+* [ ] Validar formularios.
+* [ ] Manejar errores de SQLite.
+* [ ] Manejar operaciones asíncronas con estados de loading.
+* [ ] Evitar duplicidad accidental de registros.
+* [ ] Revisar operaciones transaccionales.
+* [ ] Validar integridad entre pedidos, artículos y movimientos.
+* [ ] Revisar comportamiento con base de datos vacía.
+* [ ] Revisar comportamiento con grandes cantidades de registros.
+* [ ] Revisar navegación.
+* [ ] Revisar overflows.
+* [ ] Revisar diferentes tamaños de pantalla.
+* [ ] Ejecutar `flutter analyze`.
+* [ ] Ejecutar pruebas funcionales principales.
+
+---
+
+# Funcionalidades fuera del alcance inicial
+
+## Posibles mejoras futuras
+
+No implementar todavía salvo que posteriormente sean aprobadas.
+
+Considerar como posibles extensiones:
+
+* Gestión formal de solicitantes.
+* Filtros avanzados.
+* Estadísticas.
+* Reportes.
+* Exportación de información.
+* Respaldo y restauración.
+* Sincronización remota.
+* API/backend.
+* Uso multiusuario.
+* Autenticación.
+* Notificaciones.
+* Historial de cambios.
+* Ajustes manuales de inventario.
+* Cancelación de pedidos.
+* Corrección de movimientos.
+* Soporte para iOS.
+* Versión web.
+
+---
+
+# Convención para actualizar el roadmap
+
+Cada vez que se complete una funcionalidad:
+
+1. Validar que funcione.
+2. Ejecutar las verificaciones técnicas correspondientes.
+3. Cambiar únicamente las tareas realmente completadas de:
+
+```text
+- [ ]
+```
+
+a:
+
+```text
+- [x]
+```
+
+4. Si una fase completa todos sus puntos, agregar claramente:
+
+```text
+Estado: COMPLETADA
+```
+
+5. Si una fase está en ejecución:
+
+```text
+Estado: EN PROGRESO
+```
+
+6. Si todavía no inicia:
+
+```text
+Estado: PENDIENTE
+```
+
+7. Si surge un nuevo requerimiento, determinar primero:
+
+   * Si pertenece a una fase existente.
+   * Si debe agregarse como nueva tarea.
+   * Si modifica una regla funcional.
+   * Si requiere crear una nueva fase.
+
+8. Actualizar también la documentación funcional si el nuevo requerimiento modifica el comportamiento del sistema.
+
+---
+
+## 16. Versionamiento y Trazabilidad
+
+A partir del hito actual, el proyecto sigue un control estricto de versiones y lanzamientos para garantizar la trazabilidad de cada incremento técnico y funcional.
+
+### 📐 Estrategia de Versionamiento (App Version)
+La versión de la aplicación en `pubspec.yaml` se rige bajo la estructura:
+```text
+MAJOR.MINOR.PATCH+BUILD
+```
+
+Durante el desarrollo previo a la primera versión estable, se usará la forma `0.MINOR.PATCH+BUILD`:
+* **MAJOR (0):** Indica que el proyecto sigue en desarrollo activo y no ha alcanzado estabilidad de producción. La versión `1.0.0` se reservará para la primera entrega estable completa.
+* **MINOR:** Se incrementa al implementar una capacidad funcional completa y significativa del roadmap (por ejemplo, `0.1.x` para catálogo, `0.2.x` para pedidos).
+* **PATCH:** Se incrementa para lanzamientos de incrementos parciales o mejoras técnicas dentro de una misma capacidad funcional (por ejemplo, `0.1.0` dominio, `0.1.1` esquema SQLite, `0.1.2` persistencia local).
+* **BUILD (después del `+`):** Es un entero estrictamente creciente (e.g. `+1`, `+2`, `+3`) que funciona como número de compilación global. **Nunca se reinicia**, incluso cuando se incrementan los valores de MINOR o PATCH.
+
+#### Historial de versiones y evolución:
+* `0.0.1+1`: Proyecto inicial y Design System.
+* `0.1.0+2`: Modelo de dominio Publication.
+* `0.1.1+3` (Versión actual): Persistencia SQLite inicial (tabla `publications` y restricciones).
+* `0.1.2+4` (Próxima versión): Implementación de acceso local para registro de publicaciones.
+
+> [!NOTE]
+> **Diferencia entre versión de la app y versión de SQLite:**
+> Son conceptos y números totalmente desacoplados. La versión de la aplicación (ej. `0.1.1+3`) refleja lanzamientos y cambios funcionales o de UI. La versión de la base de datos SQLite (ej. versión `1`) sólo aumenta si el esquema de tablas requiere una nueva migración física. Por ejemplo, en el futuro es posible tener la versión de aplicación `0.4.2+14` corriendo sobre el esquema de base de datos SQLite versión `3`.
+
+### 📦 Nombres de APK Distribuibles
+Para facilitar la identificación de los binarios distribuidos para pruebas o staging en Android, se utilizará la siguiente nomenclatura (reemplazando el caracter `+` por un guion):
+```text
+request_manager_app-v<VERSION>-build<BUILD>.apk
+```
+* Ejemplo actual: `request_manager_app-v0.1.1-build3.apk`
+* Ejemplo futuro: `request_manager_app-v0.1.2-build4.apk`
+
+### 🤝 Convención de Commits (Git)
+Se utiliza una convención ligera de **Conventional Commits** para mantener el historial del repositorio legible y atómico:
+* **`feat`**: Nueva funcionalidad (ej. `feat(publications): add local publication insert`).
+* **`fix`**: Corrección de un bug (ej. `fix(database): fix code constraint check`).
+* **`refactor`**: Reorganización de código sin cambiar comportamiento (ej. `refactor(theme): simplify card styling`).
+* **`test`**: Creación o modificación de pruebas (ej. `test(database): validate size constraint`).
+* **`docs`**: Cambios en documentación (ej. `docs: add changelog`).
+* **`chore`**: Tareas de mantenimiento, dependencias o releases (ej. `chore(release): bump version to 0.1.1+3`).
+
+Un commit no equivale necesariamente a una nueva versión. Es preferible hacer commits pequeños y atómicos que describan un cambio único, y realizar un commit de release (`chore(release)`) cuando el incremento completo haya sido finalizado y verificado mediante todas las pruebas.
+
+### 🏷️ Git Tags para Releases
+Las releases de producción o hitos importantes se etiquetarán en Git utilizando la versión funcional (sin incluir el build):
+```text
+v<MAJOR>.<MINOR>.<PATCH> (ej. v0.1.1)
+```
+
+---
+
+# Estado inicial
+
+Al crear esta sección del README, todas las tareas deben permanecer inicialmente sin marcar:
+
+```text
+- [ ]
+```
+
+No asumir que algo está implementado simplemente porque ya fue definido o documentado.
+
+La definición funcional y la implementación son estados diferentes.
+
 
