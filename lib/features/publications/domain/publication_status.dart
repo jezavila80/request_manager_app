@@ -1,0 +1,4 @@
+enum PublicationStatus {
+  draft,
+  complete,
+}
