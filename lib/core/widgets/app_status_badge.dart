@@ -24,10 +24,11 @@ class AppStatusBadge extends StatelessWidget {
   factory AppStatusBadge.fromString(String statusStr, {String? label}) {
     final cleanStr = statusStr.trim().toLowerCase();
     AppStatus resolvedStatus = AppStatus.pendiente;
-    
+
     if (cleanStr.contains('parcialmente') || cleanStr.contains('parcial')) {
       resolvedStatus = AppStatus.parcialmenteSurtido;
-    } else if (cleanStr.contains('surtido') || cleanStr.contains('completado')) {
+    } else if (cleanStr.contains('surtido') ||
+        cleanStr.contains('completado')) {
       resolvedStatus = AppStatus.surtido;
     } else if (cleanStr.contains('error') || cleanStr.contains('cancelado')) {
       resolvedStatus = AppStatus.error;

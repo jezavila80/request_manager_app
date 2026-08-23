@@ -46,7 +46,9 @@ class AppFormField extends StatelessWidget {
           onTap: onTap,
           decoration: InputDecoration(
             hintText: hintText,
-            prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 20.0, color: AppColors.textSecondary) : null,
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, size: 20.0, color: AppColors.textSecondary)
+                : null,
           ),
         ),
       ],
