@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.2+4**
+**0.1.3+5**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -18,6 +18,7 @@ Estado actual:
 - Persistencia SQLite v1 implementada.
 - Tabla publications y constraints validados.
 - Acceso local para registrar publicaciones completado.
+- Acceso local para consultar publicaciones completado.
 
 ---
 
@@ -379,9 +380,9 @@ Para proteger la integridad de los datos a nivel de base de datos, se aplican la
 * **Estado activo/inactivo (`is_active`):** Almacenado como entero (`0` para inactivo, `1` para activo) bajo la restricción `CHECK (is_active IN (0, 1))`.
 * **Fechas:** Almacenadas en formato de texto ISO-8601, lo cual permite realizar conversiones y filtros temporales de manera nativa en Dart (`DateTime.parse`).
 
-### 📐 Capa de Persistencia y Registro
+### 📐 Capa de Persistencia, Registro y Consultas
 
-Para el registro de publicaciones se implementó la arquitectura estructurada en base a la separación de responsabilidades:
+Para el registro y la consulta de publicaciones se implementó la arquitectura estructurada en base a la separación de responsabilidades:
 
 ```text
 Publication (Dominio)
@@ -397,10 +398,25 @@ PublicationMapper (Datos Mapeo)
 AppDatabase (Conexión SQLite)
 ```
 
-* **`PublicationRepository` / `PublicationRepositoryImpl`**: Abstracción del repositorio que ofrece el método `Future<Publication> create(Publication publication)`. Realiza la validación para rechazar publicaciones que ya contienen un ID no nulo y retorna la publicación actualizada con el ID autogenerado en SQLite (`copyWith(id: generatedId)`).
-* **`PublicationLocalDataSource`**: Gestiona las operaciones de base de datos directas (`db.insert`), abstrayendo excepciones nativas de SQLite a excepciones de dominio claras.
-* **`PublicationMapper`**: Mapeador bidireccional encargado de serializar entidades a `Map<String, Object?>` para SQLite y deserializar de `Map` a entidades `Publication`.
-* **Regla de Operación de `create()`**: Devuelve la publicación persistida con el ID generado en caso de éxito. Si la persistencia falla (ej. por violaciones de claves únicas case-insensitive o desconexión), lanza una excepción especializada (`DuplicatePublicationCodeException`, `PublicationPersistenceException`); **nunca** devuelve una entidad vacía ni nula.
+* **`PublicationRepository` / `PublicationRepositoryImpl`**: Abstracción del repositorio que ofrece soporte para:
+  * `Future<Publication> create(Publication publication)`: Valida que el ID sea nulo antes de registrar la publicación.
+  * `Future<List<Publication>> getAll()`: Retorna todas las publicaciones en orden alfabético (`name ASC` case-insensitive).
+  * `Future<Publication?> getById(int id)`: Recupera una publicación por su ID, validando que el ID sea mayor a 0 (lanza `ArgumentError` en caso contrario).
+* **`PublicationLocalDataSource`**: Gestiona las consultas y escrituras directas sobre SQLite, abstrayendo excepciones de base de datos (`DatabaseException` / `Database closed`) a excepciones de dominio limpias (`PublicationPersistenceException` o `DuplicatePublicationCodeException`).
+* **`PublicationMapper`**: Mapeador bidireccional que convierte cada fila de SQLite (`Map<String, Object?>`) en una entidad de dominio completa (`Publication`) y viceversa.
+* **Flujo de Reconstrucción de Datos**:
+  ```text
+  SQLite row (Database map)
+         ↓ (fromMap)
+  PublicationMapper
+         ↓ (rebuilds size/version states, dates, isActive)
+  Publication (Domain model with calculated status)
+  ```
+  Cada consulta reconstruye todas las propiedades del modelo (incluyendo el estado calculado `status` y los mapeos de `TriStateValue` de `size` y `version`).
+* **Manejo de Errores e Integridad**:
+  * `getById()` sobre un ID inexistente retorna `null`.
+  * `getAll()` sobre una base vacía retorna una lista vacía `[]` (nunca `null`).
+  * Consultas fallidas (por base cerrada u otros errores) se traducen en `PublicationPersistenceException`.
 
 ---
 
@@ -473,7 +489,7 @@ Cada publicación podrá contener:
 * [x] Diseñar el modelo `Publication`.
 * [x] Crear la tabla SQLite correspondiente.
 * [x] Crear acceso local para registrar publicaciones.
-* [ ] Crear acceso local para consultar publicaciones.
+* [x] Crear acceso local para consultar publicaciones.
 * [ ] Permitir búsqueda por nombre.
 * [ ] Permitir búsqueda por código.
 * [ ] Evitar duplicados evidentes.

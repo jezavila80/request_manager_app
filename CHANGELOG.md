@@ -6,6 +6,27 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [0.1.3] - 2026-08-24
+
+### Added
+
+- Capacidad para consultar publicaciones registradas localmente en SQLite.
+- Firma `getAll()` y `getById(int id)` en la interfaz `PublicationRepository` y su implementación `PublicationRepositoryImpl`.
+- Implementación de `getAll()` y `getById(int id)` en la fuente de datos `PublicationLocalDataSource`.
+- Orden alfabético preestablecido (`name ASC` case-insensitive, con orden secundario `id ASC`) para el listado de publicaciones en `getAll()`.
+- Validación de parámetro ID en consultas `getById()` (ID debe ser mayor a 0, lanzando `ArgumentError`).
+- Manejo de consultas no encontradas devolviendo `null` para `getById()` y lista vacía `[]` para `getAll()`.
+- Abstracción de excepciones SQLite nativas (`DatabaseException` / `Database closed`) a excepciones de dominio del tipo `PublicationPersistenceException`.
+
+### Testing
+
+- Pruebas unitarias de consultas en `publication_local_data_source_test.dart` (validación de base vacía, consultas por ID existente/inexistente, validación de ID <= 0, validación de orden alfabético case-insensitive, persistencia de estados TriState, isActive y fechas).
+- Pruebas del repositorio en `publication_repository_impl_test.dart` (coherencia de retornos, envoltura de excepciones de persistencia inesperadas).
+- Pruebas de integración de extremo a extremo:
+  - Registro de publicación (`create`) y posterior lectura (`getById` y `getAll`) validando coincidencia total de atributos.
+  - Persistencia real entre reinicios: Creación de publicación -> Cierre de conexión DB -> Reapertura de conexión DB -> Validación de lectura exitosa.
+- Cobertura total del proyecto incrementada exitosamente a 66 pruebas unitarias e integración en verde.
+
 ## [0.1.2] - 2026-08-24
 
 ### Added
