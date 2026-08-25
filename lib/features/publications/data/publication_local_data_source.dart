@@ -44,4 +44,55 @@ class PublicationLocalDataSource {
       );
     }
   }
+
+  Future<List<Publication>> getAll() async {
+    try {
+      final db = await _appDatabase.database;
+      final maps = await db.query(
+        DatabaseConstants.tablePublications,
+        orderBy:
+            '${DatabaseConstants.columnName} COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC',
+      );
+      return maps.map((map) => PublicationMapper.fromMap(map)).toList();
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al consultar las publicaciones.',
+        e,
+      );
+    } catch (e) {
+      throw PublicationPersistenceException(
+        'Error inesperado al consultar las publicaciones en la base de datos.',
+        e,
+      );
+    }
+  }
+
+  Future<Publication?> getById(int id) async {
+    if (id <= 0) {
+      throw ArgumentError('El ID de la publicación debe ser mayor a 0.');
+    }
+    try {
+      final db = await _appDatabase.database;
+      final maps = await db.query(
+        DatabaseConstants.tablePublications,
+        where: '${DatabaseConstants.columnId} = ?',
+        whereArgs: [id],
+      );
+      if (maps.isEmpty) {
+        return null;
+      }
+      return PublicationMapper.fromMap(maps.first);
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al consultar la publicación con ID: $id.',
+        e,
+      );
+    } catch (e) {
+      if (e is ArgumentError) rethrow;
+      throw PublicationPersistenceException(
+        'Error inesperado al consultar la publicación con ID: $id en la base de datos.',
+        e,
+      );
+    }
+  }
 }

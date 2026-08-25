@@ -13,11 +13,13 @@ class PublicationPersistenceException extends PublicationException {
   PublicationPersistenceException(super.message, [super.cause]);
 }
 
-class DuplicatePublicationCodeException extends PublicationPersistenceException {
+class DuplicatePublicationCodeException
+    extends PublicationPersistenceException {
   final String code;
 
   DuplicatePublicationCodeException(this.code, [dynamic cause])
-      : super('Ya existe una publicación registrada con el código: $code', cause);
+      : super(
+            'Ya existe una publicación registrada con el código: $code', cause);
 }
 
 class PublicationAlreadyPersistedException extends PublicationException {
