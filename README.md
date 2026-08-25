@@ -10,13 +10,14 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.1+3**
+**0.1.2+4**
 
 Estado actual:
 - Base del proyecto y Design System completados.
 - Modelo Publication implementado y probado.
 - Persistencia SQLite v1 implementada.
 - Tabla publications y constraints validados.
+- Acceso local para registrar publicaciones completado.
 
 ---
 
@@ -378,6 +379,29 @@ Para proteger la integridad de los datos a nivel de base de datos, se aplican la
 * **Estado activo/inactivo (`is_active`):** Almacenado como entero (`0` para inactivo, `1` para activo) bajo la restricción `CHECK (is_active IN (0, 1))`.
 * **Fechas:** Almacenadas en formato de texto ISO-8601, lo cual permite realizar conversiones y filtros temporales de manera nativa en Dart (`DateTime.parse`).
 
+### 📐 Capa de Persistencia y Registro
+
+Para el registro de publicaciones se implementó la arquitectura estructurada en base a la separación de responsabilidades:
+
+```text
+Publication (Dominio)
+       ↓
+PublicationRepository (Dominio Interfaz)
+       ↓
+PublicationRepositoryImpl (Datos)
+       ↓
+PublicationLocalDataSource (Datos SQLite)
+       ↓
+PublicationMapper (Datos Mapeo)
+       ↓
+AppDatabase (Conexión SQLite)
+```
+
+* **`PublicationRepository` / `PublicationRepositoryImpl`**: Abstracción del repositorio que ofrece el método `Future<Publication> create(Publication publication)`. Realiza la validación para rechazar publicaciones que ya contienen un ID no nulo y retorna la publicación actualizada con el ID autogenerado en SQLite (`copyWith(id: generatedId)`).
+* **`PublicationLocalDataSource`**: Gestiona las operaciones de base de datos directas (`db.insert`), abstrayendo excepciones nativas de SQLite a excepciones de dominio claras.
+* **`PublicationMapper`**: Mapeador bidireccional encargado de serializar entidades a `Map<String, Object?>` para SQLite y deserializar de `Map` a entidades `Publication`.
+* **Regla de Operación de `create()`**: Devuelve la publicación persistida con el ID generado en caso de éxito. Si la persistencia falla (ej. por violaciones de claves únicas case-insensitive o desconexión), lanza una excepción especializada (`DuplicatePublicationCodeException`, `PublicationPersistenceException`); **nunca** devuelve una entidad vacía ni nula.
+
 ---
 
 # Roadmap del proyecto
@@ -448,7 +472,7 @@ Cada publicación podrá contener:
 
 * [x] Diseñar el modelo `Publication`.
 * [x] Crear la tabla SQLite correspondiente.
-* [ ] Crear acceso local para registrar publicaciones.
+* [x] Crear acceso local para registrar publicaciones.
 * [ ] Crear acceso local para consultar publicaciones.
 * [ ] Permitir búsqueda por nombre.
 * [ ] Permitir búsqueda por código.

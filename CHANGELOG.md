@@ -6,6 +6,26 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [0.1.2] - 2026-08-24
+
+### Added
+
+- Capacidad para registrar publicaciones de manera local en SQLite.
+- `PublicationRepository` en la capa de dominio.
+- `PublicationRepositoryImpl` en la capa de datos.
+- `PublicationLocalDataSource` para operaciones de inserción en base de datos SQLite.
+- `PublicationMapper` para mapeo bidireccional entre entidad de dominio y mapas de base de datos.
+- Excepciones personalizadas de persistencia: `PublicationException`, `PublicationPersistenceException`, `DuplicatePublicationCodeException`, y `PublicationAlreadyPersistedException`.
+- Validación para impedir la creación de una publicación que ya contiene un ID definido.
+- Manejo especializado de errores por código duplicado (case-insensitive) y fallos generales de persistencia en SQLite.
+
+### Testing
+
+- Pruebas del mapeador (`publication_mapper_test.dart`) cubriendo Drafts, Complete y roundtrips.
+- Pruebas de la persistencia directa (`publication_local_data_source_test.dart`) usando SQLite en memoria aislado.
+- Pruebas del repositorio (`publication_repository_impl_test.dart`) validando lógica de inserción exitosa, excepciones de duplicados y rechazo de IDs no nulos.
+- Total de 52 pruebas unitarias y de integración pasando al 100%.
+
 ## [0.1.1] - 2026-08-22
 
 ### Added
