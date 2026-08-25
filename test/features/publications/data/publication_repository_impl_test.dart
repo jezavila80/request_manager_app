@@ -99,5 +99,137 @@ void main() {
         throwsA(isA<PublicationPersistenceException>()),
       );
     });
+
+    test('getAll() on empty database returns empty list', () async {
+      final result = await repository.getAll();
+      expect(result, isEmpty);
+    });
+
+    test('getById() on non-existing ID returns null', () async {
+      final result = await repository.getById(999999);
+      expect(result, isNull);
+    });
+
+    test('getById() with id <= 0 throws ArgumentError', () async {
+      expect(() => repository.getById(0), throwsArgumentError);
+      expect(() => repository.getById(-5), throwsArgumentError);
+    });
+
+    test(
+        'Unexpected DB errors during getAll/getById are wrapped in PublicationPersistenceException',
+        () async {
+      await AppDatabase.instance.close();
+
+      expect(
+        () => repository.getAll(),
+        throwsA(isA<PublicationPersistenceException>()),
+      );
+
+      expect(
+        () => repository.getById(1),
+        throwsA(isA<PublicationPersistenceException>()),
+      );
+    });
+
+    test('Integration: create -> getById -> retrieves the same publication',
+        () async {
+      final publication = Publication(
+        name: 'Integration Test Publication',
+        code: 'INT-99',
+        type: 'Folleto',
+        size: TriStateValue.conValor('Mini'),
+        version: TriStateValue.conValor('v1'),
+      );
+
+      final created = await repository.create(publication);
+      expect(created.id, isNotNull);
+      expect(created.id, greaterThan(0));
+
+      final retrieved = await repository.getById(created.id!);
+      expect(retrieved, isNotNull);
+      expect(retrieved!.id, created.id);
+      expect(retrieved.name, 'Integration Test Publication');
+      expect(retrieved.code, 'INT-99');
+      expect(retrieved.type, 'Folleto');
+      expect(retrieved.size.state, TriState.conValor);
+      expect(retrieved.size.value, 'Mini');
+      expect(retrieved.version.state, TriState.conValor);
+      expect(retrieved.version.value, 'v1');
+      expect(retrieved.status, PublicationStatus.complete);
+    });
+
+    test('Integration: create multiple -> getAll -> returns sorted list',
+        () async {
+      final pubA = Publication(name: 'Zeta');
+      final pubB = Publication(name: 'alfa');
+      final pubC = Publication(name: 'Beta');
+
+      final createdA = await repository.create(pubA);
+      final createdB = await repository.create(pubB);
+      final createdC = await repository.create(pubC);
+
+      final list = await repository.getAll();
+      expect(list.length, 3);
+      // Expected sorted order (case-insensitive):
+      // 1. alfa (createdB)
+      // 2. Beta (createdC)
+      // 3. Zeta (createdA)
+      expect(list[0].id, createdB.id);
+      expect(list[0].name, 'alfa');
+      expect(list[1].id, createdC.id);
+      expect(list[1].name, 'Beta');
+      expect(list[2].id, createdA.id);
+      expect(list[2].name, 'Zeta');
+    });
+
+    test('Integration: persist -> close -> reopen -> verifies persistence',
+        () async {
+      final dbPath =
+          'repo_reopen_test_${DateTime.now().millisecondsSinceEpoch}.db';
+
+      // Initialize repository on temporary database file
+      await AppDatabase.instance.initDatabaseForTesting(
+        dbPath,
+        factory: databaseFactoryFfi,
+      );
+      final diskRepo = PublicationRepositoryImpl();
+
+      final publication = Publication(
+        name: 'Persistent Across Reopen',
+        code: 'PAR-1',
+        type: 'Libro',
+        size: const TriStateValue.noAplica(),
+        version: const TriStateValue.noAplica(),
+      );
+
+      final created = await diskRepo.create(publication);
+      expect(created.id, isNotNull);
+
+      // Close the connection
+      await AppDatabase.instance.close();
+
+      // Reopen connection to the same file
+      await AppDatabase.instance.initDatabaseForTesting(
+        dbPath,
+        factory: databaseFactoryFfi,
+      );
+
+      // Verify the publication is still there
+      final retrieved = await diskRepo.getById(created.id!);
+      expect(retrieved, isNotNull);
+      expect(retrieved!.id, created.id);
+      expect(retrieved.name, 'Persistent Across Reopen');
+      expect(retrieved.code, 'PAR-1');
+      expect(retrieved.size, const TriStateValue<String>.noAplica());
+      expect(retrieved.version, const TriStateValue<String>.noAplica());
+
+      final allList = await diskRepo.getAll();
+      expect(allList.length, 1);
+      expect(allList.first.id, created.id);
+
+      // Cleanup
+      await AppDatabase.instance.close();
+      await databaseFactoryFfi.deleteDatabase(dbPath);
+    });
   });
 }
