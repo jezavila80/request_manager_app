@@ -211,5 +211,157 @@ void main() {
       expect(list[3].id, id1);
       expect(list[3].name, 'revistilla');
     });
+
+    group('searchByName Tests', () {
+      test(
+          'Empty or whitespace query returns empty list without querying database',
+          () async {
+        final r1 = await dataSource.searchByName('');
+        final r2 = await dataSource.searchByName('    ');
+        expect(r1, isEmpty);
+        expect(r2, isEmpty);
+      });
+
+      test('Invalid limit throws ArgumentError', () async {
+        expect(() => dataSource.searchByName('test', limit: 0),
+            throwsArgumentError);
+        expect(() => dataSource.searchByName('test', limit: -5),
+            throwsArgumentError);
+      });
+
+      test('Search excludes inactive publications', () async {
+        final active = Publication(name: 'Biblia Activa', isActive: true);
+        final inactive = Publication(name: 'Biblia Inactiva', isActive: false);
+
+        await dataSource.insert(active);
+        await dataSource.insert(inactive);
+
+        final results = await dataSource.searchByName('biblia');
+        expect(results.length, 1);
+        expect(results.first.name, 'Biblia Activa');
+      });
+
+      test('Search includes both DRAFT and COMPLETE publications', () async {
+        final draft = Publication(
+            name: 'Biblia Borrador', code: null, type: null); // Draft status
+        final complete = Publication(
+            name: 'Biblia Completa',
+            code: 'BC-1',
+            type: 'Libro'); // Complete status
+
+        await dataSource.insert(draft);
+        await dataSource.insert(complete);
+
+        final results = await dataSource.searchByName('biblia');
+        expect(results.length, 2);
+
+        final names = results.map((e) => e.name).toList();
+        expect(names, containsAll(['Biblia Borrador', 'Biblia Completa']));
+      });
+
+      test('Search is case-insensitive', () async {
+        final pub = Publication(name: 'BiBlIa ReInA');
+        await dataSource.insert(pub);
+
+        final r1 = await dataSource.searchByName('biblia');
+        final r2 = await dataSource.searchByName('BIBLIA');
+        final r3 = await dataSource.searchByName('BiBlIa');
+
+        expect(r1.length, 1);
+        expect(r2.length, 1);
+        expect(r3.length, 1);
+        expect(r1.first.name, 'BiBlIa ReInA');
+      });
+
+      test('Search trims query whitespace', () async {
+        final pub = Publication(name: 'Biblia');
+        await dataSource.insert(pub);
+
+        final results = await dataSource.searchByName('   biblia   ');
+        expect(results.length, 1);
+        expect(results.first.name, 'Biblia');
+      });
+
+      test('Search respects limit and defaults to 20', () async {
+        for (int i = 0; i < 25; i++) {
+          await dataSource.insert(Publication(name: 'Biblia $i'));
+        }
+
+        final defaultLimitResults = await dataSource.searchByName('biblia');
+        expect(defaultLimitResults.length, 20);
+
+        final customLimitResults =
+            await dataSource.searchByName('biblia', limit: 5);
+        expect(customLimitResults.length, 5);
+      });
+
+      test(
+          'Search ranks exactMatch -> startsWith -> contains, then alphabetical, then ID',
+          () async {
+        final pub1 = Publication(name: 'Manual sobre la Biblia'); // contains
+        final pub2 = Publication(name: 'Biblia'); // exact
+        final pub3 = Publication(name: 'Santa Biblia de bolsillo'); // contains
+        final pub4 = Publication(name: 'Biblia Reina Valera'); // startsWith
+        final pub5 = Publication(name: 'Biblia Letra Grande'); // startsWith
+
+        await dataSource.insert(pub1);
+        final exactId = await dataSource.insert(pub2);
+        await dataSource.insert(pub3);
+        final sw2Id = await dataSource.insert(pub4);
+        final sw1Id = await dataSource.insert(pub5);
+
+        final results = await dataSource.searchByName('biblia');
+        expect(results.length, 5);
+
+        // Expected Order:
+        // 1. Biblia (exact)
+        // 2. Biblia Letra Grande (startsWith, sorted alphabetically before Biblia Reina Valera)
+        // 3. Biblia Reina Valera (startsWith)
+        // 4. Manual sobre la Biblia (contains, sorted alphabetically before Santa Biblia)
+        // 5. Santa Biblia de bolsillo (contains)
+
+        expect(results[0].id, exactId);
+        expect(results[0].name, 'Biblia');
+
+        expect(results[1].id, sw1Id);
+        expect(results[1].name, 'Biblia Letra Grande');
+
+        expect(results[2].id, sw2Id);
+        expect(results[2].name, 'Biblia Reina Valera');
+
+        expect(results[3].name, 'Manual sobre la Biblia');
+        expect(results[4].name, 'Santa Biblia de bolsillo');
+      });
+
+      test('Search escapes LIKE wildcard characters %, _ and \\ safely',
+          () async {
+        final matchPercent = Publication(name: 'Manual 100%');
+        final nonMatchPercent = Publication(name: 'Manual 100a');
+        final matchUnderscore = Publication(name: 'Manual_Especial');
+        final nonMatchUnderscore = Publication(name: 'ManualXEspecial');
+        final matchBackslash = Publication(name: 'Manual\\Backslash');
+
+        await dataSource.insert(matchPercent);
+        await dataSource.insert(nonMatchPercent);
+        await dataSource.insert(matchUnderscore);
+        await dataSource.insert(nonMatchUnderscore);
+        await dataSource.insert(matchBackslash);
+
+        // Search '%' literally
+        final resPercent = await dataSource.searchByName('100%');
+        expect(resPercent.length, 1);
+        expect(resPercent.first.name, 'Manual 100%');
+
+        // Search '_' literally
+        final resUnderscore = await dataSource.searchByName('Manual_');
+        expect(resUnderscore.length, 1);
+        expect(resUnderscore.first.name, 'Manual_Especial');
+
+        // Search '\' literally
+        final resBackslash = await dataSource.searchByName('Manual\\');
+        expect(resBackslash.length, 1);
+        expect(resBackslash.first.name, 'Manual\\Backslash');
+      });
+    });
   });
 }

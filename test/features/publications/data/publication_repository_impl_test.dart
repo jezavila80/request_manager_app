@@ -231,5 +231,46 @@ void main() {
       await AppDatabase.instance.close();
       await databaseFactoryFfi.deleteDatabase(dbPath);
     });
+
+    group('searchByName Repository Tests', () {
+      test('Successful searchByName returns correct list of publications',
+          () async {
+        final pub1 = Publication(name: 'Biblia Reina Valera');
+        final pub2 = Publication(name: 'Biblia Letra Grande');
+        final pub3 = Publication(name: 'Otro Libro');
+
+        await repository.create(pub1);
+        await repository.create(pub2);
+        await repository.create(pub3);
+
+        final results = await repository.searchByName('biblia');
+        expect(results.length, 2);
+        expect(results[0].name, 'Biblia Letra Grande'); // sorted alphabetically
+        expect(results[1].name, 'Biblia Reina Valera');
+      });
+
+      test('Empty query returns empty list', () async {
+        final results = await repository.searchByName('   ');
+        expect(results, isEmpty);
+      });
+
+      test('Invalid limit throws ArgumentError', () async {
+        expect(() => repository.searchByName('test', limit: 0),
+            throwsArgumentError);
+        expect(() => repository.searchByName('test', limit: -1),
+            throwsArgumentError);
+      });
+
+      test(
+          'Unexpected DB errors during searchByName are wrapped in PublicationPersistenceException',
+          () async {
+        await AppDatabase.instance.close();
+
+        expect(
+          () => repository.searchByName('biblia'),
+          throwsA(isA<PublicationPersistenceException>()),
+        );
+      });
+    });
   });
 }
