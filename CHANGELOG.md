@@ -6,6 +6,40 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [0.1.4] - 2026-08-24
+
+### Added
+
+- Capacidad para realizar búsquedas locales de publicaciones por nombre en SQLite.
+- Firma `searchByName(String query, {int limit = 20})` en la interfaz `PublicationRepository` y su correspondiente implementación `PublicationRepositoryImpl`.
+- Implementación de `searchByName` en la fuente de datos `PublicationLocalDataSource`.
+- Algoritmo de priorización por relevancia en SQLite:
+  1. Coincidencia exacta de nombre.
+  2. Coincidencias que comienzan con el término de búsqueda.
+  3. Coincidencias que contienen el término de búsqueda.
+  *Orden secundario por orden alfabético case-insensitive y finalmente por ID.*
+- Filtro automático de publicaciones activas (`is_active = 1`).
+- Soporte para incluir publicaciones en estado `DRAFT` y `COMPLETE` en los resultados de búsqueda.
+- Normalización automática del query (trimming y retorno inmediato de `[]` para búsquedas vacías).
+- Validación robusta de límites (`limit > 0`, lanzando `ArgumentError` en caso contrario).
+- Escape seguro de comodines SQL (`%`, `_`) y el carácter de escape (`\`) mediante la cláusula `ESCAPE '\'`.
+- Abstracción de excepciones SQLite durante las consultas a `PublicationPersistenceException`.
+
+### Testing
+
+- Pruebas unitarias de búsqueda en `publication_local_data_source_test.dart` y `publication_repository_impl_test.dart` cubriendo:
+  - Búsqueda vacía/con espacios.
+  - Validación de límites correctos e incorrectos.
+  - Exclusión de publicaciones inactivas.
+  - Inclusión de publicaciones en borrador y completas.
+  - Case-insensitivity.
+  - Trimming del término de búsqueda.
+  - Límite por defecto (20) y límites personalizados.
+  - Priorización y ordenamiento de resultados (exacta -> empieza con -> contiene).
+  - Escapes de caracteres especiales (`%`, `_`, `\`).
+  - Wrapping de excepciones de persistencia inesperadas.
+- Las 79 pruebas totales del proyecto en verde.
+
 ## [0.1.3] - 2026-08-24
 
 ### Added

@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.3+5**
+**0.1.4+6**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -19,6 +19,7 @@ Estado actual:
 - Tabla publications y constraints validados.
 - Acceso local para registrar publicaciones completado.
 - Acceso local para consultar publicaciones completado.
+- Búsqueda local de publicaciones por nombre completada.
 
 ---
 
@@ -402,21 +403,21 @@ AppDatabase (Conexión SQLite)
   * `Future<Publication> create(Publication publication)`: Valida que el ID sea nulo antes de registrar la publicación.
   * `Future<List<Publication>> getAll()`: Retorna todas las publicaciones en orden alfabético (`name ASC` case-insensitive).
   * `Future<Publication?> getById(int id)`: Recupera una publicación por su ID, validando que el ID sea mayor a 0 (lanza `ArgumentError` en caso contrario).
+  * `Future<List<Publication>> searchByName(String query, {int limit = 20})`: Busca publicaciones activas cuyo nombre coincida de forma parcial y case-insensitive con el query provisto.
 * **`PublicationLocalDataSource`**: Gestiona las consultas y escrituras directas sobre SQLite, abstrayendo excepciones de base de datos (`DatabaseException` / `Database closed`) a excepciones de dominio limpias (`PublicationPersistenceException` o `DuplicatePublicationCodeException`).
 * **`PublicationMapper`**: Mapeador bidireccional que convierte cada fila de SQLite (`Map<String, Object?>`) en una entidad de dominio completa (`Publication`) y viceversa.
-* **Flujo de Reconstrucción de Datos**:
-  ```text
-  SQLite row (Database map)
-         ↓ (fromMap)
-  PublicationMapper
-         ↓ (rebuilds size/version states, dates, isActive)
-  Publication (Domain model with calculated status)
-  ```
-  Cada consulta reconstruye todas las propiedades del modelo (incluyendo el estado calculado `status` y los mapeos de `TriStateValue` de `size` y `version`).
-* **Manejo de Errores e Integridad**:
-  * `getById()` sobre un ID inexistente retorna `null`.
-  * `getAll()` sobre una base vacía retorna una lista vacía `[]` (nunca `null`).
-  * Consultas fallidas (por base cerrada u otros errores) se traducen en `PublicationPersistenceException`.
+* **Reglas de Búsqueda por Nombre (`searchByName`)**:
+  * **Normalización**: Se realiza `trim()` al query. Si queda vacío, se devuelve inmediatamente `[]` sin realizar peticiones a la base de datos.
+  * **Límite**: Por defecto limitado a 20 resultados. Si `limit <= 0`, lanza `ArgumentError`.
+  * **Solo Activos**: Solo se incluyen registros donde `is_active = 1`.
+  * **Estados**: Devuelve tanto publicaciones `DRAFT` como `COMPLETE`.
+  * **Priorización de Relevancia**: Ordena los resultados según el nivel de coincidencia:
+    1. Coincidencia exacta (`name = query`)
+    2. Empieza con (`name LIKE query%`)
+    3. Contiene (`name LIKE %query%`)
+    *Para un mismo nivel de relevancia, se ordena alfabéticamente (`name COLLATE NOCASE ASC`) y de forma final por su ID (`id ASC`).*
+  * **Escaping de Caracteres Especiales**: Los caracteres comodín de SQL (`%`, `_`) y el carácter de escape (`\`) se escapan de forma segura utilizando la cláusula `ESCAPE '\'` para buscar sus valores literales correspondientes en el nombre.
+  * **Limitación actual respecto a acentos**: La búsqueda utiliza `COLLATE NOCASE` y `LIKE` de SQLite, por lo que es case-insensitive pero **accent-sensitive** (sensible a acentos y diacríticos, ej. `edicion` no coincide con `edición` automáticamente). Se documenta como mejora a futuro.
 
 ---
 
@@ -490,7 +491,7 @@ Cada publicación podrá contener:
 * [x] Crear la tabla SQLite correspondiente.
 * [x] Crear acceso local para registrar publicaciones.
 * [x] Crear acceso local para consultar publicaciones.
-* [ ] Permitir búsqueda por nombre.
+* [x] Permitir búsqueda por nombre.
 * [ ] Permitir búsqueda por código.
 * [ ] Evitar duplicados evidentes.
 * [ ] Crear una vista básica del catálogo si resulta necesaria.
