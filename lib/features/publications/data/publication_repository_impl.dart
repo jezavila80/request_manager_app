@@ -32,4 +32,12 @@ class PublicationRepositoryImpl implements PublicationRepository {
     }
     return _localDataSource.getById(id);
   }
+
+  @override
+  Future<List<Publication>> searchByName(String query, {int limit = 20}) async {
+    if (limit <= 0) {
+      throw ArgumentError('El límite de búsqueda debe ser mayor a 0.');
+    }
+    return _localDataSource.searchByName(query, limit: limit);
+  }
 }
