@@ -5,4 +5,5 @@ abstract interface class PublicationRepository {
   Future<List<Publication>> getAll();
   Future<Publication?> getById(int id);
   Future<List<Publication>> searchByName(String query, {int limit = 20});
+  Future<List<Publication>> searchByCode(String query, {int limit = 20});
 }

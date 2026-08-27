@@ -140,6 +140,51 @@ class PublicationLocalDataSource {
     }
   }
 
+  Future<List<Publication>> searchByCode(String query, {int limit = 20}) async {
+    if (limit <= 0) {
+      throw ArgumentError('El límite de búsqueda debe ser mayor a 0.');
+    }
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) {
+      return [];
+    }
+
+    try {
+      final db = await _appDatabase.database;
+      final escaped = _escapeLike(trimmedQuery);
+
+      final maps = await db.rawQuery(
+        'SELECT * FROM ${DatabaseConstants.tablePublications} '
+        'WHERE ${DatabaseConstants.columnIsActive} = 1 '
+        'AND ${DatabaseConstants.columnCode} IS NOT NULL '
+        'AND ${DatabaseConstants.columnCode} LIKE ? ESCAPE \'\\\' '
+        'ORDER BY '
+        '  CASE '
+        '    WHEN ${DatabaseConstants.columnCode} = ? COLLATE NOCASE THEN 0 '
+        '    WHEN ${DatabaseConstants.columnCode} LIKE ? ESCAPE \'\\\' THEN 1 '
+        '    ELSE 2 '
+        '  END, '
+        '  ${DatabaseConstants.columnCode} COLLATE NOCASE ASC, '
+        '  ${DatabaseConstants.columnId} ASC '
+        'LIMIT ?',
+        ['%$escaped%', trimmedQuery, '$escaped%', limit],
+      );
+
+      return maps.map((map) => PublicationMapper.fromMap(map)).toList();
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al buscar publicaciones por código.',
+        e,
+      );
+    } catch (e) {
+      if (e is ArgumentError) rethrow;
+      throw PublicationPersistenceException(
+        'Error inesperado al buscar publicaciones por código en la base de datos.',
+        e,
+      );
+    }
+  }
+
   String _escapeLike(String input) {
     return input
         .replaceAll('\\', '\\\\')
