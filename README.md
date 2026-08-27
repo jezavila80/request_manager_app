@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.4+6**
+**0.1.5+7**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -20,6 +20,7 @@ Estado actual:
 - Acceso local para registrar publicaciones completado.
 - Acceso local para consultar publicaciones completado.
 - Búsqueda local de publicaciones por nombre completada.
+- Búsqueda local de publicaciones por código completada.
 
 ---
 
@@ -404,6 +405,7 @@ AppDatabase (Conexión SQLite)
   * `Future<List<Publication>> getAll()`: Retorna todas las publicaciones en orden alfabético (`name ASC` case-insensitive).
   * `Future<Publication?> getById(int id)`: Recupera una publicación por su ID, validando que el ID sea mayor a 0 (lanza `ArgumentError` en caso contrario).
   * `Future<List<Publication>> searchByName(String query, {int limit = 20})`: Busca publicaciones activas cuyo nombre coincida de forma parcial y case-insensitive con el query provisto.
+  * `Future<List<Publication>> searchByCode(String query, {int limit = 20})`: Busca publicaciones activas cuyo código coincida de forma parcial y case-insensitive con el query provisto.
 * **`PublicationLocalDataSource`**: Gestiona las consultas y escrituras directas sobre SQLite, abstrayendo excepciones de base de datos (`DatabaseException` / `Database closed`) a excepciones de dominio limpias (`PublicationPersistenceException` o `DuplicatePublicationCodeException`).
 * **`PublicationMapper`**: Mapeador bidireccional que convierte cada fila de SQLite (`Map<String, Object?>`) en una entidad de dominio completa (`Publication`) y viceversa.
 * **Reglas de Búsqueda por Nombre (`searchByName`)**:
@@ -418,6 +420,17 @@ AppDatabase (Conexión SQLite)
     *Para un mismo nivel de relevancia, se ordena alfabéticamente (`name COLLATE NOCASE ASC`) y de forma final por su ID (`id ASC`).*
   * **Escaping de Caracteres Especiales**: Los caracteres comodín de SQL (`%`, `_`) y el carácter de escape (`\`) se escapan de forma segura utilizando la cláusula `ESCAPE '\'` para buscar sus valores literales correspondientes en el nombre.
   * **Limitación actual respecto a acentos**: La búsqueda utiliza `COLLATE NOCASE` y `LIKE` de SQLite, por lo que es case-insensitive pero **accent-sensitive** (sensible a acentos y diacríticos, ej. `edicion` no coincide con `edición` automáticamente). Se documenta como mejora a futuro.
+* **Reglas de Búsqueda por Código (`searchByCode`)**:
+  * **Normalización**: Se realiza `trim()` al query. Si queda vacío (o contiene puros espacios), se devuelve inmediatamente `[]` sin realizar peticiones a la base de datos.
+  * **Límite**: Por defecto limitado a 20 resultados. Si `limit <= 0`, lanza `ArgumentError`.
+  * **Solo Activos**: Solo se incluyen registros donde `is_active = 1`.
+  * **Estados**: Devuelve tanto publicaciones `DRAFT` (si tienen código asignado) como `COMPLETE`. Un borrador sin código simplemente queda excluido de la búsqueda.
+  * **Priorización de Relevancia**: Ordena los resultados según el nivel de coincidencia:
+    1. Coincidencia exacta (`code = query` case-insensitive)
+    2. Empieza con (`code LIKE query%`)
+    3. Contiene (`code LIKE %query%`)
+    *Para un mismo nivel de relevancia, se ordena lexicográficamente (`code COLLATE NOCASE ASC`) y de forma final por su ID (`id ASC`). El ordenamiento natural no está soportado en esta versión.*
+  * **Escaping de Caracteres Especiales**: Los caracteres comodín de SQL (`%`, `_`) y el carácter de escape (`\`) se escapan utilizando la cláusula `ESCAPE '\'`.
 
 ---
 
@@ -492,7 +505,7 @@ Cada publicación podrá contener:
 * [x] Crear acceso local para registrar publicaciones.
 * [x] Crear acceso local para consultar publicaciones.
 * [x] Permitir búsqueda por nombre.
-* [ ] Permitir búsqueda por código.
+* [x] Permitir búsqueda por código.
 * [ ] Evitar duplicados evidentes.
 * [ ] Crear una vista básica del catálogo si resulta necesaria.
 * [ ] Validar persistencia después de reiniciar la aplicación.

@@ -6,6 +6,39 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [0.1.5] - 2026-08-26
+
+### Added
+
+- Capacidad para realizar búsquedas locales de publicaciones por código en SQLite.
+- Firma `searchByCode(String query, {int limit = 20})` en la interfaz `PublicationRepository` y su correspondiente implementación `PublicationRepositoryImpl`.
+- Implementación de `searchByCode` en la fuente de datos `PublicationLocalDataSource`.
+- Algoritmo de priorización por relevancia en SQLite para códigos:
+  1. Coincidencia exacta de código.
+  2. Coincidencias de códigos que comienzan con el término de búsqueda.
+  3. Coincidencias de códigos que contienen el término de búsqueda.
+  *Orden secundario lexicográfico (`code COLLATE NOCASE ASC`) y de forma final por ID (`id ASC`).*
+- Filtro automático de publicaciones activas (`is_active = 1`).
+- Soporte para incluir publicaciones en estado `DRAFT` (con código asignado) y `COMPLETE` en los resultados.
+- Normalización del query (trimming y retorno inmediato de `[]` para búsquedas vacías).
+- Validación de límites (`limit > 0`, lanzando `ArgumentError` en caso contrario).
+- Escape de caracteres comodín SQL (`%`, `_`) y el carácter de escape (`\`) utilizando `ESCAPE '\'`.
+
+### Testing
+
+- Pruebas unitarias de búsqueda por código en `publication_local_data_source_test.dart` y `publication_repository_impl_test.dart` cubriendo:
+  - Búsqueda vacía/con espacios.
+  - Validación de límites.
+  - Exclusión de publicaciones inactivas.
+  - Inclusión de borradores con código y completas, exclusión de borradores sin código.
+  - Case-insensitivity.
+  - Trimming del término de búsqueda.
+  - Límite por defecto (20) y límites personalizados.
+  - Priorización y ordenamiento de resultados (exacta -> empieza con -> contiene).
+  - Escapes de caracteres especiales (`%`, `_`, `\`).
+  - Wrapping de excepciones de persistencia inesperadas.
+- Las 94 pruebas totales del proyecto en verde.
+
 ## [0.1.4] - 2026-08-24
 
 ### Added
