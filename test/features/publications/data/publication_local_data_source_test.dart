@@ -363,5 +363,170 @@ void main() {
         expect(resBackslash.first.name, 'Manual\\Backslash');
       });
     });
+
+    group('searchByCode Tests', () {
+      test(
+          'Empty or whitespace query returns empty list without querying database',
+          () async {
+        final r1 = await dataSource.searchByCode('');
+        final r2 = await dataSource.searchByCode('    ');
+        expect(r1, isEmpty);
+        expect(r2, isEmpty);
+      });
+
+      test('Invalid limit throws ArgumentError', () async {
+        expect(() => dataSource.searchByCode('test', limit: 0),
+            throwsArgumentError);
+        expect(() => dataSource.searchByCode('test', limit: -5),
+            throwsArgumentError);
+      });
+
+      test('Search excludes inactive publications', () async {
+        final active =
+            Publication(name: 'Biblia Activa', code: 'RBI-8', isActive: true);
+        final inactive = Publication(
+            name: 'Biblia Inactiva', code: 'RBI-9', isActive: false);
+
+        await dataSource.insert(active);
+        await dataSource.insert(inactive);
+
+        final results = await dataSource.searchByCode('RBI');
+        expect(results.length, 1);
+        expect(results.first.name, 'Biblia Activa');
+      });
+
+      test('Search includes both DRAFT with code and COMPLETE publications',
+          () async {
+        final draftWithCode = Publication(
+            name: 'Biblia Borrador',
+            code: 'RBI-TEMP',
+            type: null); // Draft status
+        final draftWithoutCode = Publication(
+            name: 'Biblia Borrador 2',
+            code: null,
+            type: null); // Draft status, no code
+        final complete = Publication(
+            name: 'Biblia Completa',
+            code: 'RBI-8',
+            type: 'Libro'); // Complete status
+
+        await dataSource.insert(draftWithCode);
+        await dataSource.insert(draftWithoutCode);
+        await dataSource.insert(complete);
+
+        final results = await dataSource.searchByCode('RBI');
+        expect(results.length, 2);
+
+        final codes = results.map((e) => e.code).toList();
+        expect(codes, containsAll(['RBI-TEMP', 'RBI-8']));
+        expect(codes, isNot(contains(null)));
+      });
+
+      test('Search is case-insensitive', () async {
+        final pub = Publication(name: 'Biblia Reina', code: 'RbI-8');
+        await dataSource.insert(pub);
+
+        final r1 = await dataSource.searchByCode('rbi-8');
+        final r2 = await dataSource.searchByCode('RBI-8');
+        final r3 = await dataSource.searchByCode('RbI-8');
+
+        expect(r1.length, 1);
+        expect(r2.length, 1);
+        expect(r3.length, 1);
+        expect(r1.first.code, 'RbI-8');
+      });
+
+      test('Search trims query whitespace', () async {
+        final pub = Publication(name: 'Biblia', code: 'RBI-8');
+        await dataSource.insert(pub);
+
+        final results = await dataSource.searchByCode('   rbi-8   ');
+        expect(results.length, 1);
+        expect(results.first.code, 'RBI-8');
+      });
+
+      test('Search respects limit and defaults to 20', () async {
+        for (int i = 0; i < 25; i++) {
+          await dataSource.insert(Publication(name: 'Biblia $i', code: 'R-$i'));
+        }
+
+        final defaultLimitResults = await dataSource.searchByCode('R');
+        expect(defaultLimitResults.length, 20);
+
+        final customLimitResults = await dataSource.searchByCode('R', limit: 5);
+        expect(customLimitResults.length, 5);
+      });
+
+      test(
+          'Search ranks exactMatch -> startsWith -> contains, then alphabetical, then ID',
+          () async {
+        final pub1 = Publication(name: 'Contains 1', code: 'XRBI-1');
+        final pub2 = Publication(name: 'Exact', code: 'RBI');
+        final pub3 = Publication(name: 'Contains 2', code: 'A-RBI-2');
+        final pub4 = Publication(name: 'StartsWith 1', code: 'RBI-12');
+        final pub5 = Publication(name: 'StartsWith 2', code: 'RBI-8');
+
+        final id1 = await dataSource.insert(pub1);
+        final id2 = await dataSource.insert(pub2);
+        final id3 = await dataSource.insert(pub3);
+        final id4 = await dataSource.insert(pub4);
+        final id5 = await dataSource.insert(pub5);
+
+        final results = await dataSource.searchByCode('RBI');
+        expect(results.length, 5);
+
+        // Expected sorted order:
+        // 1. RBI (exact)
+        // 2. RBI-12 (startsWith, sorted alphabetically before RBI-8)
+        // 3. RBI-8 (startsWith)
+        // 4. A-RBI-2 (contains, sorted alphabetically before XRBI-1)
+        // 5. XRBI-1 (contains)
+        expect(results[0].id, id2);
+        expect(results[0].code, 'RBI');
+
+        expect(results[1].id, id4);
+        expect(results[1].code, 'RBI-12');
+
+        expect(results[2].id, id5);
+        expect(results[2].code, 'RBI-8');
+
+        expect(results[3].id, id3);
+        expect(results[3].code, 'A-RBI-2');
+
+        expect(results[4].id, id1);
+        expect(results[4].code, 'XRBI-1');
+      });
+
+      test('Search escapes LIKE wildcard characters %, _ and \\ safely',
+          () async {
+        final matchPercent = Publication(name: 'Percent', code: 'RBI%8');
+        final nonMatchPercent = Publication(name: 'Percent No', code: 'RBI88');
+        final matchUnderscore = Publication(name: 'Underscore', code: 'RBI_8');
+        final nonMatchUnderscore =
+            Publication(name: 'Underscore No', code: 'RBIA8');
+        final matchBackslash = Publication(name: 'Backslash', code: 'RBI\\8');
+
+        await dataSource.insert(matchPercent);
+        await dataSource.insert(nonMatchPercent);
+        await dataSource.insert(matchUnderscore);
+        await dataSource.insert(nonMatchUnderscore);
+        await dataSource.insert(matchBackslash);
+
+        // Search '%' literally
+        final resPercent = await dataSource.searchByCode('RBI%');
+        expect(resPercent.length, 1);
+        expect(resPercent.first.code, 'RBI%8');
+
+        // Search '_' literally
+        final resUnderscore = await dataSource.searchByCode('RBI_');
+        expect(resUnderscore.length, 1);
+        expect(resUnderscore.first.code, 'RBI_8');
+
+        // Search '\' literally
+        final resBackslash = await dataSource.searchByCode('RBI\\');
+        expect(resBackslash.length, 1);
+        expect(resBackslash.first.code, 'RBI\\8');
+      });
+    });
   });
 }

@@ -272,5 +272,73 @@ void main() {
         );
       });
     });
+
+    group('searchByCode Repository Tests', () {
+      test('Successful searchByCode returns correct list of publications',
+          () async {
+        final pub1 = Publication(name: 'Biblia 1', code: 'RBI-12');
+        final pub2 = Publication(name: 'Biblia 2', code: 'RBI-8');
+        final pub3 = Publication(name: 'Otro Libro', code: 'W26-1');
+
+        await repository.create(pub1);
+        await repository.create(pub2);
+        await repository.create(pub3);
+
+        final results = await repository.searchByCode('RBI');
+        expect(results.length, 2);
+        expect(results[0].code, 'RBI-12'); // sorted alphabetically
+        expect(results[1].code, 'RBI-8');
+      });
+
+      test('Empty query returns empty list', () async {
+        final results = await repository.searchByCode('   ');
+        expect(results, isEmpty);
+      });
+
+      test('Invalid limit throws ArgumentError', () async {
+        expect(() => repository.searchByCode('test', limit: 0),
+            throwsArgumentError);
+        expect(() => repository.searchByCode('test', limit: -1),
+            throwsArgumentError);
+      });
+
+      test('Search excludes inactive publications', () async {
+        final active =
+            Publication(name: 'Activo', code: 'RBI-8', isActive: true);
+        final inactive =
+            Publication(name: 'Inactivo', code: 'RBI-9', isActive: false);
+
+        await repository.create(active);
+        await repository.create(inactive);
+
+        final results = await repository.searchByCode('RBI');
+        expect(results.length, 1);
+        expect(results.first.code, 'RBI-8');
+      });
+
+      test('Search includes Draft with code but excludes Draft without code',
+          () async {
+        final draftWithCode = Publication(name: 'Draft con', code: 'RBI-TEMP');
+        final draftWithoutCode = Publication(name: 'Draft sin', code: null);
+
+        await repository.create(draftWithCode);
+        await repository.create(draftWithoutCode);
+
+        final results = await repository.searchByCode('RBI');
+        expect(results.length, 1);
+        expect(results.first.code, 'RBI-TEMP');
+      });
+
+      test(
+          'Unexpected DB errors during searchByCode are wrapped in PublicationPersistenceException',
+          () async {
+        await AppDatabase.instance.close();
+
+        expect(
+          () => repository.searchByCode('RBI'),
+          throwsA(isA<PublicationPersistenceException>()),
+        );
+      });
+    });
   });
 }
