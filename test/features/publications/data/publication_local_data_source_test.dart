@@ -529,16 +529,16 @@ void main() {
       });
     });
 
-    group('findActiveByExactCode and findActiveByName Tests', () {
-      test('findActiveByExactCode returns exact publication case-insensitive',
+    group('findByExactCode and findActiveByName Tests', () {
+      test('findByExactCode returns exact active publication case-insensitive',
           () async {
         final active =
             Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
         await dataSource.insert(active);
 
-        final r1 = await dataSource.findActiveByExactCode('rbi-8');
-        final r2 = await dataSource.findActiveByExactCode('RBI-8');
-        final r3 = await dataSource.findActiveByExactCode('Rbi-8');
+        final r1 = await dataSource.findByExactCode('rbi-8');
+        final r2 = await dataSource.findByExactCode('RBI-8');
+        final r3 = await dataSource.findByExactCode('Rbi-8');
 
         expect(r1, isNotNull);
         expect(r1!.code, 'RBI-8');
@@ -548,25 +548,41 @@ void main() {
         expect(r3!.code, 'RBI-8');
       });
 
-      test('findActiveByExactCode returns null for nonexistent code', () async {
-        final result = await dataSource.findActiveByExactCode('NONEXISTENT');
-        expect(result, isNull);
-      });
-
-      test('findActiveByExactCode excludes inactive publications', () async {
+      test(
+          'findByExactCode returns exact inactive publication case-insensitive',
+          () async {
         final inactive = Publication(
             name: 'Biblia Inactiva', code: 'RBI-8', isActive: false);
         await dataSource.insert(inactive);
 
-        final result = await dataSource.findActiveByExactCode('RBI-8');
+        final result = await dataSource.findByExactCode('rbi-8');
+        expect(result, isNotNull);
+        expect(result!.code, 'RBI-8');
+        expect(result.isActive, isFalse);
+      });
+
+      test('findByExactCode returns null for nonexistent code', () async {
+        final result = await dataSource.findByExactCode('NONEXISTENT');
         expect(result, isNull);
       });
 
-      test('findActiveByExactCode throws ArgumentError on empty code',
+      test('findByExactCode returns null on empty or whitespace code',
           () async {
-        expect(() => dataSource.findActiveByExactCode(''), throwsArgumentError);
+        final r1 = await dataSource.findByExactCode('');
+        final r2 = await dataSource.findByExactCode('   ');
+        expect(r1, isNull);
+        expect(r2, isNull);
+      });
+
+      test(
+          'Unexpected DB errors during findByExactCode are wrapped in PublicationPersistenceException',
+          () async {
+        await AppDatabase.instance.close();
+
         expect(
-            () => dataSource.findActiveByExactCode('   '), throwsArgumentError);
+          () => dataSource.findByExactCode('RBI-8'),
+          throwsA(isA<PublicationPersistenceException>()),
+        );
       });
 
       test(

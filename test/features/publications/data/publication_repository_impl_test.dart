@@ -341,27 +341,35 @@ void main() {
       });
     });
 
-    group('findActiveByExactCode & findActiveByName Repository Tests', () {
-      test('findActiveByExactCode returns exact publication case-insensitive',
+    group('findByExactCode & findActiveByName Repository Tests', () {
+      test(
+          'findByExactCode returns exact active or inactive publication case-insensitive',
           () async {
         final active =
             Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
+        final inactive =
+            Publication(name: 'Biblia 2', code: 'RBI-9', isActive: false);
         await repository.create(active);
+        await repository.create(inactive);
 
-        final r1 = await repository.findActiveByExactCode('rbi-8');
-        final r2 = await repository.findActiveByExactCode('RBI-8');
+        final r1 = await repository.findByExactCode('rbi-8');
+        final r2 = await repository.findByExactCode('RBI-8');
+        final r3 = await repository.findByExactCode('rbi-9');
 
         expect(r1, isNotNull);
         expect(r1!.code, 'RBI-8');
         expect(r2, isNotNull);
         expect(r2!.code, 'RBI-8');
+        expect(r3, isNotNull);
+        expect(r3!.code, 'RBI-9');
+        expect(r3.isActive, isFalse);
       });
 
-      test('findActiveByExactCode throws ArgumentError on empty code',
-          () async {
-        expect(() => repository.findActiveByExactCode(''), throwsArgumentError);
-        expect(
-            () => repository.findActiveByExactCode('   '), throwsArgumentError);
+      test('findByExactCode returns null on empty code', () async {
+        final r1 = await repository.findByExactCode('');
+        final r2 = await repository.findByExactCode('   ');
+        expect(r1, isNull);
+        expect(r2, isNull);
       });
 
       test('findActiveByName returns exact matches case-insensitive', () async {

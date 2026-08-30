@@ -4,6 +4,7 @@ import 'package:request_manager_app/core/database/app_database.dart';
 import 'package:request_manager_app/features/publications/data/publication_repository_impl.dart';
 import 'package:request_manager_app/features/publications/domain/duplicate_check_result.dart';
 import 'package:request_manager_app/features/publications/domain/publication.dart';
+import 'package:request_manager_app/features/publications/domain/publication_exceptions.dart';
 import 'package:request_manager_app/features/publications/domain/services/publication_duplicate_checker.dart';
 import 'package:request_manager_app/features/publications/domain/tri_state_value.dart';
 
@@ -272,19 +273,28 @@ void main() {
       expect(result.matches, isEmpty);
     });
 
-    test('42. Test - inactivo', () async {
-      // Test code duplicate with inactive
+    test(
+        '42. Test - inactivo: código duplicado bloquea, atributos similares se ignoran',
+        () async {
+      // Test code duplicate with inactive record
       final inactive1 =
           Publication(name: 'Inactivo 1', code: 'RBI-8', isActive: false);
       await repository.create(inactive1);
 
       final candidate1 = Publication(name: 'Candidato', code: 'RBI-8');
       final result1 = await checker.checkDuplicates(candidate1);
-      expect(result1.status, DuplicateCheckStatus.none);
+      expect(result1.status, DuplicateCheckStatus.duplicateCode);
+      expect(result1.matches.length, 1);
+      expect(result1.matches.first.name, 'Inactivo 1');
 
-      // Test attribute duplicate with inactive
+      // Test code duplicate with inactive record and different casing (rbi-8 vs RBI-8)
+      final candidateCase = Publication(name: 'Candidato Case', code: 'rbi-8');
+      final resultCase = await checker.checkDuplicates(candidateCase);
+      expect(resultCase.status, DuplicateCheckStatus.duplicateCode);
+
+      // Test attribute duplicate with inactive record (must return none, not possibleDuplicate)
       final inactive2 = Publication(
-        name: 'Biblia Inactiva',
+        name: 'Biblia Letra Grande',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
         version: TriStateValue.conValor('Reina Valera'),
@@ -293,7 +303,7 @@ void main() {
       await repository.create(inactive2);
 
       final candidate2 = Publication(
-        name: 'Biblia Inactiva',
+        name: 'Biblia Letra Grande',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
         version: TriStateValue.conValor('Reina Valera'),
@@ -330,6 +340,33 @@ void main() {
 
       expect(result.status, DuplicateCheckStatus.possibleDuplicate);
       expect(result.matches.length, 2);
+    });
+
+    test(
+        '44. Regresión CREATE: checker previene insert si existe código inactivo',
+        () async {
+      final inactivePub = Publication(
+        name: 'Biblia Antigua Inactiva',
+        code: 'RBI-8',
+        isActive: false,
+      );
+      await repository.create(inactivePub);
+
+      final newCandidate = Publication(
+        name: 'Nueva Biblia RBI-8',
+        code: 'RBI-8',
+        isActive: true,
+      );
+
+      final checkResult = await checker.checkDuplicates(newCandidate);
+      expect(checkResult.status, DuplicateCheckStatus.duplicateCode);
+      expect(checkResult.matches.length, 1);
+      expect(checkResult.matches.first.code, 'RBI-8');
+
+      expect(
+        () => repository.create(newCandidate),
+        throwsA(isA<DuplicatePublicationCodeException>()),
+      );
     });
   });
 }
