@@ -441,21 +441,23 @@ Se ha implementado una capa especializada de validación mediante `PublicationDu
 
 ### ⚡ Estrategia de Niveles y Severidad
 
-La validación distingue dos categorías principales de duplicados sobre las publicaciones activas (`is_active = 1`):
+La validación distingue dos categorías principales de duplicados:
 
 ```text
 Duplicate detection
-├── Duplicate code → hard block
-├── Attribute match → warning
+├── Duplicate code (active & inactive) → hard block
+├── Attribute match (active only) → warning
 └── No match → continue
 ```
 
 1. **Código Duplicado (`DUPLICATE_CODE` / Bloqueo Duro)**:
-   - Si la publicación candidata define un código (`code`), se busca si ya existe un registro activo con el mismo código exacto (case-insensitive).
+   - Los códigos son únicos entre todas las publicaciones, incluidas las publicaciones inactivas.
+   - Si la publicación candidata define un código (`code`), se busca mediante `findByExactCode` si ya existe un registro (activo o inactivo) con el mismo código exacto (case-insensitive).
    - En caso afirmativo, se genera un estado de bloqueo definitivo. La interfaz de usuario no debe permitir continuar.
    - **Garantía SQLite**: Si la capa superior intentara evadir la comprobación en memoria, el índice único `idx_publications_code_unique` de SQLite actuará como última línea de defensa, lanzando `DuplicatePublicationCodeException`.
 
 2. **Posible Duplicado por Atributos (`POSSIBLE_DUPLICATE` / Advertencia)**:
+   - La detección de posibles duplicados por atributos solo considera publicaciones activas (`is_active = 1`).
    - Si no existe conflicto por código, se buscan publicaciones activas que tengan datos similares utilizando la combinación principal:
      $$\text{name} + \text{type} + \text{size} + \text{version}$$
    - Si se detectan coincidencias compatibles, se retorna el estado de advertencia con la lista de publicaciones encontradas. La interfaz de usuario podrá mostrar estos candidatos y permitir al usuario cancelar o continuar explícitamente.

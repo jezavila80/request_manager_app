@@ -6,6 +6,13 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [Unreleased]
+
+### Fixed
+
+- Alineada la detección preventiva de códigos duplicados con la restricción única de SQLite, incluyendo publicaciones inactivas.
+- Reemplazada la consulta `findActiveByExactCode` por `findByExactCode` en `PublicationRepository`, `PublicationLocalDataSource` y `PublicationDuplicateChecker` para consultar publicaciones activas e inactivas.
+
 ## [0.1.6] - 2026-08-30
 
 ### Added
