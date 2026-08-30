@@ -48,4 +48,22 @@ class PublicationRepositoryImpl implements PublicationRepository {
     }
     return _localDataSource.searchByCode(query, limit: limit);
   }
+
+  @override
+  Future<Publication?> findActiveByExactCode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('El código no puede estar vacío.');
+    }
+    return _localDataSource.findActiveByExactCode(trimmed);
+  }
+
+  @override
+  Future<List<Publication>> findActiveByName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('El nombre no puede estar vacío.');
+    }
+    return _localDataSource.findActiveByName(trimmed);
+  }
 }

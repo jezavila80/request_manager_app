@@ -185,6 +185,69 @@ class PublicationLocalDataSource {
     }
   }
 
+  Future<Publication?> findActiveByExactCode(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError(
+          'El código no puede estar vacío o contener únicamente espacios.');
+    }
+    try {
+      final db = await _appDatabase.database;
+      final maps = await db.query(
+        DatabaseConstants.tablePublications,
+        where:
+            '${DatabaseConstants.columnIsActive} = 1 AND ${DatabaseConstants.columnCode} = ? COLLATE NOCASE',
+        whereArgs: [trimmed],
+      );
+      if (maps.isEmpty) {
+        return null;
+      }
+      return PublicationMapper.fromMap(maps.first);
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al buscar publicación activa por código exacto.',
+        e,
+      );
+    } catch (e) {
+      if (e is ArgumentError) rethrow;
+      throw PublicationPersistenceException(
+        'Error inesperado al buscar publicación activa por código exacto en la base de datos.',
+        e,
+      );
+    }
+  }
+
+  Future<List<Publication>> findActiveByName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError(
+          'El nombre no puede estar vacío o contener únicamente espacios.');
+    }
+    try {
+      final db = await _appDatabase.database;
+      final maps = await db.query(
+        DatabaseConstants.tablePublications,
+        where:
+            '${DatabaseConstants.columnIsActive} = 1 AND ${DatabaseConstants.columnName} = ? COLLATE NOCASE',
+        whereArgs: [trimmed],
+        orderBy:
+            '${DatabaseConstants.columnName} COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC',
+      );
+      return maps.map((map) => PublicationMapper.fromMap(map)).toList();
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al buscar publicaciones activas por nombre exacto.',
+        e,
+      );
+    } catch (e) {
+      if (e is ArgumentError) rethrow;
+      throw PublicationPersistenceException(
+        'Error inesperado al buscar publicaciones activas por nombre exacto en la base de datos.',
+        e,
+      );
+    }
+  }
+
   String _escapeLike(String input) {
     return input
         .replaceAll('\\', '\\\\')
