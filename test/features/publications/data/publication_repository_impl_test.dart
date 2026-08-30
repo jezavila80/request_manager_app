@@ -340,5 +340,50 @@ void main() {
         );
       });
     });
+
+    group('findActiveByExactCode & findActiveByName Repository Tests', () {
+      test('findActiveByExactCode returns exact publication case-insensitive',
+          () async {
+        final active =
+            Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
+        await repository.create(active);
+
+        final r1 = await repository.findActiveByExactCode('rbi-8');
+        final r2 = await repository.findActiveByExactCode('RBI-8');
+
+        expect(r1, isNotNull);
+        expect(r1!.code, 'RBI-8');
+        expect(r2, isNotNull);
+        expect(r2!.code, 'RBI-8');
+      });
+
+      test('findActiveByExactCode throws ArgumentError on empty code',
+          () async {
+        expect(() => repository.findActiveByExactCode(''), throwsArgumentError);
+        expect(
+            () => repository.findActiveByExactCode('   '), throwsArgumentError);
+      });
+
+      test('findActiveByName returns exact matches case-insensitive', () async {
+        final p1 = Publication(
+            name: 'Biblia Letra Grande', code: 'P1', isActive: true);
+        final p2 = Publication(
+            name: 'biblia letra grande', code: 'P2', isActive: true);
+
+        await repository.create(p1);
+        await repository.create(p2);
+
+        final results =
+            await repository.findActiveByName('  Biblia Letra Grande  ');
+        expect(results.length, 2);
+        expect(results[0].name, 'Biblia Letra Grande');
+        expect(results[1].name, 'biblia letra grande');
+      });
+
+      test('findActiveByName throws ArgumentError on empty name', () async {
+        expect(() => repository.findActiveByName(''), throwsArgumentError);
+        expect(() => repository.findActiveByName('   '), throwsArgumentError);
+      });
+    });
   });
 }

@@ -528,5 +528,87 @@ void main() {
         expect(resBackslash.first.code, 'RBI\\8');
       });
     });
+
+    group('findActiveByExactCode and findActiveByName Tests', () {
+      test('findActiveByExactCode returns exact publication case-insensitive',
+          () async {
+        final active =
+            Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
+        await dataSource.insert(active);
+
+        final r1 = await dataSource.findActiveByExactCode('rbi-8');
+        final r2 = await dataSource.findActiveByExactCode('RBI-8');
+        final r3 = await dataSource.findActiveByExactCode('Rbi-8');
+
+        expect(r1, isNotNull);
+        expect(r1!.code, 'RBI-8');
+        expect(r2, isNotNull);
+        expect(r2!.code, 'RBI-8');
+        expect(r3, isNotNull);
+        expect(r3!.code, 'RBI-8');
+      });
+
+      test('findActiveByExactCode returns null for nonexistent code', () async {
+        final result = await dataSource.findActiveByExactCode('NONEXISTENT');
+        expect(result, isNull);
+      });
+
+      test('findActiveByExactCode excludes inactive publications', () async {
+        final inactive = Publication(
+            name: 'Biblia Inactiva', code: 'RBI-8', isActive: false);
+        await dataSource.insert(inactive);
+
+        final result = await dataSource.findActiveByExactCode('RBI-8');
+        expect(result, isNull);
+      });
+
+      test('findActiveByExactCode throws ArgumentError on empty code',
+          () async {
+        expect(() => dataSource.findActiveByExactCode(''), throwsArgumentError);
+        expect(
+            () => dataSource.findActiveByExactCode('   '), throwsArgumentError);
+      });
+
+      test(
+          'findActiveByName returns exact matches case-insensitive sorted by name COLLATE NOCASE ASC, id ASC',
+          () async {
+        final p1 = Publication(
+            name: 'Biblia Letra Grande', code: 'P1', isActive: true);
+        final p2 = Publication(
+            name: 'biblia letra grande', code: 'P2', isActive: true);
+        final p3 = Publication(
+            name: 'Biblia Letra Chica',
+            code: 'P3',
+            isActive: true); // different name
+
+        final id1 = await dataSource.insert(p1);
+        final id2 = await dataSource.insert(p2);
+        await dataSource.insert(p3);
+
+        final results =
+            await dataSource.findActiveByName('  Biblia Letra Grande  ');
+        expect(results.length, 2);
+        expect(results[0].id, id1);
+        expect(results[1].id, id2);
+      });
+
+      test('findActiveByName excludes inactive publications', () async {
+        final active = Publication(name: 'Biblia', code: 'P1', isActive: true);
+        final inactive =
+            Publication(name: 'Biblia', code: 'P2', isActive: false);
+
+        await dataSource.insert(active);
+        await dataSource.insert(inactive);
+
+        final results = await dataSource.findActiveByName('Biblia');
+        expect(results.length, 1);
+        expect(results.first.isActive, isTrue);
+      });
+
+      test('findActiveByName throws ArgumentError on empty name', () async {
+        expect(() => dataSource.findActiveByName(''), throwsArgumentError);
+        expect(() => dataSource.findActiveByName('   '), throwsArgumentError);
+      });
+    });
   });
 }
