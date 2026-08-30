@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.5+7**
+**0.1.6+8**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -21,6 +21,7 @@ Estado actual:
 - Acceso local para consultar publicaciones completado.
 - Búsqueda local de publicaciones por nombre completada.
 - Búsqueda local de publicaciones por código completada.
+- Detección de duplicados por código y atributos (PublicationDuplicateChecker) completada.
 
 ---
 
@@ -434,6 +435,48 @@ AppDatabase (Conexión SQLite)
 
 ---
 
+## 16. Sistema de Detección de Duplicados
+
+Se ha implementado una capa especializada de validación mediante `PublicationDuplicateChecker` para prevenir el registro accidental de publicaciones redundantes o con códigos en conflicto.
+
+### ⚡ Estrategia de Niveles y Severidad
+
+La validación distingue dos categorías principales de duplicados sobre las publicaciones activas (`is_active = 1`):
+
+```text
+Duplicate detection
+├── Duplicate code → hard block
+├── Attribute match → warning
+└── No match → continue
+```
+
+1. **Código Duplicado (`DUPLICATE_CODE` / Bloqueo Duro)**:
+   - Si la publicación candidata define un código (`code`), se busca si ya existe un registro activo con el mismo código exacto (case-insensitive).
+   - En caso afirmativo, se genera un estado de bloqueo definitivo. La interfaz de usuario no debe permitir continuar.
+   - **Garantía SQLite**: Si la capa superior intentara evadir la comprobación en memoria, el índice único `idx_publications_code_unique` de SQLite actuará como última línea de defensa, lanzando `DuplicatePublicationCodeException`.
+
+2. **Posible Duplicado por Atributos (`POSSIBLE_DUPLICATE` / Advertencia)**:
+   - Si no existe conflicto por código, se buscan publicaciones activas que tengan datos similares utilizando la combinación principal:
+     $$\text{name} + \text{type} + \text{size} + \text{version}$$
+   - Si se detectan coincidencias compatibles, se retorna el estado de advertencia con la lista de publicaciones encontradas. La interfaz de usuario podrá mostrar estos candidatos y permitir al usuario cancelar o continuar explícitamente.
+
+3. **Sin Duplicados (`NONE` / Permitir Continuar)**:
+   - No se detecta conflicto de código ni coincidencia por atributos. Se permite el registro de forma normal.
+
+### 📐 Reglas de Compatibilidad de Atributos
+
+La comparación es determinista y no utiliza algoritmos de similitud difusa (fuzzy matching) ni semántica:
+* **`name`**: Participa siempre. Se normaliza aplicando `trim()` y comparación case-insensitive.
+* **`type`**: Si está definido en ambos registros, se compara aplicando `trim()` y case-insensitive. Si está sin definir (`null`) en alguno, se asume compatible (información incompleta, no se asume diferencia).
+* **`size` y `version` (`TriStateValue`)**:
+  - `undefined` (sinDefinir): Representa información faltante ("no sabemos"). Se considera compatible con cualquier valor (`not_applicable` o `conValor`).
+  - `not_applicable` (noAplica): Es un valor explícito. Solo es compatible con otro `not_applicable`.
+  - `conValor`: Se considera compatible con otro `conValor` únicamente si los textos coinciden tras aplicar `trim()` y comparación case-insensitive.
+* **Descripción**: El campo `description` **no** participa en la detección automática de duplicados para evitar falsos negativos, pero sí se incluye en la entidad de las coincidencias retornadas para que la UI se la muestre al usuario.
+* **Drafts (Borradores)**: Participan plenamente en la detección. Al no tener código (`code = null`), omiten el paso de bloqueo duro y pasan a la validación por atributos para evitar duplicar borradores idénticos de forma accidental.
+
+---
+
 # Roadmap del proyecto
 
 El roadmap debe reflejar el alcance actualmente definido y funcionar como documento vivo de avance.
@@ -506,7 +549,7 @@ Cada publicación podrá contener:
 * [x] Crear acceso local para consultar publicaciones.
 * [x] Permitir búsqueda por nombre.
 * [x] Permitir búsqueda por código.
-* [ ] Evitar duplicados evidentes.
+* [x] Evitar duplicados evidentes.
 * [ ] Crear una vista básica del catálogo si resulta necesaria.
 * [ ] Validar persistencia después de reiniciar la aplicación.
 

@@ -6,6 +6,41 @@ El proyecto utiliza versionamiento:
 
 `MAJOR.MINOR.PATCH+BUILD`
 
+## [0.1.6] - 2026-08-30
+
+### Added
+
+- Capacidad de prevención de duplicados evidentes de publicaciones con `PublicationDuplicateChecker`.
+- Modelo `DuplicateCheckResult` y enum `DuplicateCheckStatus` para clasificar las validaciones en `none`, `possibleDuplicate` y `duplicateCode`.
+- Lógica de negocio para validación en dos niveles:
+  - Nivel 1 (Bloqueo Duro): Coincidencia exacta de código (`code`) case-insensitive de publicaciones activas.
+  - Nivel 2 (Advertencia): Coincidencia por atributos combinados (`name` + `type` + `size` + `version`) sobre publicaciones activas.
+- Reglas de compatibilidad deterministas para atributos:
+  - `name`: trim + case-insensitive.
+  - `type`: trim + case-insensitive si ambos están definidos.
+  - `size` y `version` (`TriStateValue`):
+    - `sinDefinir` es compatible con cualquier valor (información faltante).
+    - `noAplica` es compatible únicamente con `noAplica`.
+    - `conValor` es compatible con otro `conValor` si el valor coincide case-insensitive.
+- Nuevas consultas de persistencia exactas en `PublicationLocalDataSource` y `PublicationRepository`:
+  - `findActiveByExactCode(String code)`
+  - `findActiveByName(String name)`
+
+### Testing
+
+- Pruebas unitarias de las nuevas consultas de persistencia exactas en `publication_local_data_source_test.dart` y `publication_repository_impl_test.dart`.
+- Suite completa de pruebas específicas para `PublicationDuplicateChecker` en `publication_duplicate_checker_test.dart` que valida:
+  - Códigos duplicados exactos y case-insensitive (bloqueo duro).
+  - Códigos similares pero diferentes.
+  - Mismo nombre y atributos normalizados con casing y espacios.
+  - Mismo nombre pero tamaño o versión diferente.
+  - Compatibilidad de estados `NOT_APPLICABLE` y `UNDEFINED` (no idénticos pero compatibles).
+  - Drafts idénticos y Draft compatible con registro más completo.
+  - Contradicción explícita de tipos.
+  - Exclusión de publicaciones inactivas.
+  - Múltiples coincidencias simultáneas en base de datos.
+- Total de 119 pruebas unitarias y de integración pasando al 100%.
+
 ## [0.1.5] - 2026-08-26
 
 ### Added
