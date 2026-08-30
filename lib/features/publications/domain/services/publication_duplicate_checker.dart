@@ -8,22 +8,21 @@ class PublicationDuplicateChecker {
 
   PublicationDuplicateChecker(this._repository);
 
-  /// Checks if a candidate publication has duplicates in active records.
+  /// Checks if a candidate publication has duplicates.
   ///
   /// Priority:
-  /// 1. Duplicate code check (case-insensitive, exact). If a match is found,
-  ///    returns [DuplicateCheckStatus.duplicateCode] and stops immediately.
+  /// 1. Duplicate code check (case-insensitive, exact, across active and inactive records).
+  ///    If a match is found, returns [DuplicateCheckStatus.duplicateCode] and stops immediately.
   ///    This represents a hard block.
-  /// 2. Possible duplicate check (by name, type, size, and version).
+  /// 2. Possible duplicate check (by name, type, size, and version across active records only).
   ///    Returns [DuplicateCheckStatus.possibleDuplicate] with all compatible matches.
   ///    This represents a warning where the user can choose to ignore or cancel.
   /// 3. If no matches are found, returns [DuplicateCheckStatus.none].
   Future<DuplicateCheckResult> checkDuplicates(Publication candidate) async {
-    // 1. Priority check: Duplicate code (exact match, case-insensitive)
+    // 1. Priority check: Duplicate code (exact match, case-insensitive, active & inactive)
     final candidateCode = candidate.code;
     if (candidateCode != null && candidateCode.trim().isNotEmpty) {
-      final existingWithCode =
-          await _repository.findActiveByExactCode(candidateCode);
+      final existingWithCode = await _repository.findByExactCode(candidateCode);
       if (existingWithCode != null) {
         return DuplicateCheckResult(
           status: DuplicateCheckStatus.duplicateCode,

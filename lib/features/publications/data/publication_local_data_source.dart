@@ -185,19 +185,19 @@ class PublicationLocalDataSource {
     }
   }
 
-  Future<Publication?> findActiveByExactCode(String code) async {
+  Future<Publication?> findByExactCode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) {
-      throw ArgumentError(
-          'El código no puede estar vacío o contener únicamente espacios.');
+      return null;
     }
     try {
       final db = await _appDatabase.database;
       final maps = await db.query(
         DatabaseConstants.tablePublications,
         where:
-            '${DatabaseConstants.columnIsActive} = 1 AND ${DatabaseConstants.columnCode} = ? COLLATE NOCASE',
+            '${DatabaseConstants.columnCode} IS NOT NULL AND ${DatabaseConstants.columnCode} = ? COLLATE NOCASE',
         whereArgs: [trimmed],
+        limit: 1,
       );
       if (maps.isEmpty) {
         return null;
@@ -205,13 +205,12 @@ class PublicationLocalDataSource {
       return PublicationMapper.fromMap(maps.first);
     } on DatabaseException catch (e) {
       throw PublicationPersistenceException(
-        'Error de persistencia en SQLite al buscar publicación activa por código exacto.',
+        'Error de persistencia en SQLite al buscar publicación por código exacto.',
         e,
       );
     } catch (e) {
-      if (e is ArgumentError) rethrow;
       throw PublicationPersistenceException(
-        'Error inesperado al buscar publicación activa por código exacto en la base de datos.',
+        'Error inesperado al buscar publicación por código exacto en la base de datos.',
         e,
       );
     }

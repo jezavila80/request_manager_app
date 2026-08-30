@@ -50,12 +50,12 @@ class PublicationRepositoryImpl implements PublicationRepository {
   }
 
   @override
-  Future<Publication?> findActiveByExactCode(String code) async {
+  Future<Publication?> findByExactCode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) {
-      throw ArgumentError('El código no puede estar vacío.');
+      return null;
     }
-    return _localDataSource.findActiveByExactCode(trimmed);
+    return _localDataSource.findByExactCode(trimmed);
   }
 
   @override
