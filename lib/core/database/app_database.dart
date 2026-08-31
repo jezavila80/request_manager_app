@@ -4,6 +4,8 @@ import 'package:sqflite/sqflite.dart';
 import 'database_constants.dart';
 import 'migrations/migration_v1.dart';
 
+import 'database_seeder.dart';
+
 class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
   static Database? _database;
@@ -48,12 +50,14 @@ class AppDatabase {
     final dbPath = await getDatabasesPath();
     final pathString = join(dbPath, filePath);
 
-    return await openDatabase(
+    final db = await openDatabase(
       pathString,
       version: DatabaseConstants.databaseVersion,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
+    await DatabaseSeeder.seedIfEmpty(db);
+    return db;
   }
 
   Future<void> _createDB(Database db, int version) async {
