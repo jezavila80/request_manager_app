@@ -8,6 +8,8 @@ enum AppStatus {
   parcialmenteSurtido,
   surtido,
   error,
+  draft,
+  complete,
 }
 
 class AppStatusBadge extends StatelessWidget {
@@ -25,7 +27,12 @@ class AppStatusBadge extends StatelessWidget {
     final cleanStr = statusStr.trim().toLowerCase();
     AppStatus resolvedStatus = AppStatus.pendiente;
 
-    if (cleanStr.contains('parcialmente') || cleanStr.contains('parcial')) {
+    if (cleanStr == 'complete' || cleanStr == 'completo') {
+      resolvedStatus = AppStatus.complete;
+    } else if (cleanStr == 'draft' || cleanStr == 'borrador') {
+      resolvedStatus = AppStatus.draft;
+    } else if (cleanStr.contains('parcialmente') ||
+        cleanStr.contains('parcial')) {
       resolvedStatus = AppStatus.parcialmenteSurtido;
     } else if (cleanStr.contains('surtido') ||
         cleanStr.contains('completado')) {
@@ -45,6 +52,18 @@ class AppStatusBadge extends StatelessWidget {
     String displayLabel;
 
     switch (status) {
+      case AppStatus.draft:
+        backgroundColor = AppColors.warningLight;
+        textColor = AppColors.warning;
+        iconData = Icons.edit_note_rounded;
+        displayLabel = label ?? 'DRAFT';
+        break;
+      case AppStatus.complete:
+        backgroundColor = AppColors.successLight;
+        textColor = AppColors.success;
+        iconData = Icons.check_circle_rounded;
+        displayLabel = label ?? 'COMPLETE';
+        break;
       case AppStatus.pendiente:
         backgroundColor = AppColors.infoLight;
         textColor = AppColors.info;

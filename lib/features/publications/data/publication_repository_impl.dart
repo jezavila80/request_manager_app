@@ -26,6 +26,11 @@ class PublicationRepositoryImpl implements PublicationRepository {
   }
 
   @override
+  Future<List<Publication>> getActivePublications() async {
+    return _localDataSource.getActivePublications();
+  }
+
+  @override
   Future<Publication?> getById(int id) async {
     if (id <= 0) {
       throw ArgumentError('El ID de la publicación debe ser mayor a 0.');

@@ -67,6 +67,29 @@ class PublicationLocalDataSource {
     }
   }
 
+  Future<List<Publication>> getActivePublications() async {
+    try {
+      final db = await _appDatabase.database;
+      final maps = await db.query(
+        DatabaseConstants.tablePublications,
+        where: '${DatabaseConstants.columnIsActive} = 1',
+        orderBy:
+            '${DatabaseConstants.columnName} COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC',
+      );
+      return maps.map((map) => PublicationMapper.fromMap(map)).toList();
+    } on DatabaseException catch (e) {
+      throw PublicationPersistenceException(
+        'Error de persistencia en SQLite al consultar las publicaciones activas.',
+        e,
+      );
+    } catch (e) {
+      throw PublicationPersistenceException(
+        'Error inesperado al consultar las publicaciones activas en la base de datos.',
+        e,
+      );
+    }
+  }
+
   Future<Publication?> getById(int id) async {
     if (id <= 0) {
       throw ArgumentError('El ID de la publicación debe ser mayor a 0.');

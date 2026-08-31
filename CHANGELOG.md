@@ -8,10 +8,21 @@ El proyecto utiliza versionamiento:
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-30
+
+### Added
+
+- Pantalla del Catálogo de Publicaciones (`Publicaciones`) para consulta de publicaciones activas.
+- Servicio de búsqueda combinada `PublicationCatalogSearchService` con prioridad de código sobre nombre, deduplicación estricta por `Publication.id` y límite de 20 resultados.
+- Vista de detalle de publicación en modo lectura (`PublicationDetailPage`) con mapeo visual de `TriStateValue` (`sinDefinir` -> "Sin definir", `noAplica` -> "No aplica", `conValor` -> valor) y representación de código faltante (`-Sin código-`).
+- Badges visuales de estado `COMPLETE` (verde/éxito) y `DRAFT` (amarillo/advertencia) en `AppStatusBadge`.
+- Indicadores de estado visual: Carga (`AppLoadingIndicator`), Catálogo Vacío ("Aún no hay publicaciones registradas"), Búsqueda sin Resultados ("No se encontraron publicaciones para \"<query>\"") y Error con Reintento ("No se pudieron cargar las publicaciones").
+- Integración de la pestaña `Publicaciones` en la barra de navegación principal de la aplicación.
+
 ### Fixed
 
 - Alineada la detección preventiva de códigos duplicados con la restricción única de SQLite, incluyendo publicaciones inactivas.
-- Reemplazada la consulta `findActiveByExactCode` por `findByExactCode` en `PublicationRepository`, `PublicationLocalDataSource` y `PublicationDuplicateChecker` para consultar publicaciones activas e inactivas.
+- Reemplazada la consulta `findActiveByExactCode` por `findByExactCode` en `PublicationRepository`, `PublicationLocalDataSource` y `PublicationDuplicateChecker`.
 
 ## [0.1.6] - 2026-08-30
 

@@ -479,6 +479,30 @@ La comparación es determinista y no utiliza algoritmos de similitud difusa (fuz
 
 ---
 
+## Catálogo de Publicaciones (Fase 1 — Vista de Consulta)
+
+Se ha implementado la pantalla del catálogo de publicaciones (`Publicaciones`) para consulta rápida de material activo en el sistema.
+
+### 📚 Características Principales
+
+1. **Búsqueda Escalada y Combinada**:
+   - `searchByCode` + `searchByName` con prioridad de código en los primeros resultados.
+   - Deduplicación automática de resultados por `Publication.id`.
+   - Límite máximo fijado en 20 publicaciones.
+   - Debounce de 300 ms y control de `requestRequestId` para prevenir race conditions.
+2. **Vista de Detalle en Modo Lectura**:
+   - Acceso mediante toque en cualquier ítem (`PublicationDetailPage`).
+   - Mapeo de atributos `TriStateValue` ("Sin definir", "No aplica", valor real).
+   - Indicación explícita para publicaciones sin código (`-Sin código-`).
+   - Exclusivamente de consulta, sin acciones de edición o eliminación.
+3. **Estados Visuales**:
+   - Badges de estado `COMPLETE` (verde) y `DRAFT` (amarillo).
+   - `AppLoadingIndicator` durante cargas asíncronas.
+   - `AppEmptyState` diferenciado para catálogo vacío vs. búsqueda sin resultados.
+   - `AppErrorState` con acción de reintento en caso de fallo en persistencia.
+
+---
+
 # Roadmap del proyecto
 
 El roadmap debe reflejar el alcance actualmente definido y funcionar como documento vivo de avance.
@@ -552,7 +576,7 @@ Cada publicación podrá contener:
 * [x] Permitir búsqueda por nombre.
 * [x] Permitir búsqueda por código.
 * [x] Evitar duplicados evidentes.
-* [ ] Crear una vista básica del catálogo si resulta necesaria.
+* [x] Crear una vista básica del catálogo si resulta necesaria.
 * [ ] Validar persistencia después de reiniciar la aplicación.
 
 ---

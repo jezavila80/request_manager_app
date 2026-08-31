@@ -9,6 +9,7 @@ import 'package:request_manager_app/core/widgets/app_status_badge.dart';
 import 'package:request_manager_app/core/widgets/app_buttons.dart';
 import 'package:request_manager_app/core/widgets/app_fields.dart';
 import 'package:request_manager_app/core/widgets/app_states.dart';
+import 'package:request_manager_app/features/publications/presentation/pages/publications_page.dart';
 
 class DesignSystemPreviewPage extends StatefulWidget {
   const DesignSystemPreviewPage({super.key});
@@ -143,10 +144,12 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
       case 0:
         return _buildInicioTab();
       case 1:
-        return _buildPedidosTab();
+        return PublicationsPage();
       case 2:
-        return _buildRecepcionesTab();
+        return _buildPedidosTab();
       case 3:
+        return _buildRecepcionesTab();
+      case 4:
         return _buildInventarioTab();
       default:
         return _buildInicioTab();
@@ -262,7 +265,7 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
               TextButton(
                 onPressed: () {
                   setState(() {
-                    _currentTab = 1;
+                    _currentTab = 2;
                     _selectedOrderId = null;
                   });
                 },
@@ -282,7 +285,7 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
                 onTap: () {
                   setState(() {
                     _selectedOrderId = pedido['id'];
-                    _currentTab = 1; // Switch to Pedidos tab
+                    _currentTab = 2; // Switch to Pedidos tab
                   });
                 },
                 child: Row(
@@ -883,11 +886,12 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentTab,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           setState(() {
             _currentTab = index;
             // Clear order detail navigation when switching tabs
-            if (index != 1) {
+            if (index != 2) {
               _selectedOrderId = null;
             }
           });
@@ -897,6 +901,11 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home_rounded),
             label: 'Inicio',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book_outlined),
+            activeIcon: Icon(Icons.menu_book_rounded),
+            label: 'Publicaciones',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.description_outlined),

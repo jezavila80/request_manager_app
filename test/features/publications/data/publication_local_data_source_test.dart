@@ -212,6 +212,33 @@ void main() {
       expect(list[3].name, 'revistilla');
     });
 
+    test(
+        'getActivePublications returns only active publications sorted by name ASC, id ASC',
+        () async {
+      final pub1 = Publication(name: 'revistilla', isActive: true);
+      final pub2 = Publication(name: 'Biblia', isActive: true);
+      final pub3 = Publication(name: 'Folleto', isActive: false);
+      final pub4 = Publication(name: 'Biblia', isActive: true);
+
+      final id1 = await dataSource.insert(pub1);
+      final id2 = await dataSource.insert(pub2);
+      await dataSource.insert(pub3);
+      final id4 = await dataSource.insert(pub4);
+
+      final list = await dataSource.getActivePublications();
+
+      expect(list.length, 3);
+      expect(list[0].id, id2);
+      expect(list[0].name, 'Biblia');
+
+      expect(list[1].id, id4);
+      expect(list[1].name, 'Biblia');
+
+      expect(list[2].id, id1);
+      expect(list[2].name, 'revistilla');
+      expect(list.every((p) => p.isActive), isTrue);
+    });
+
     group('searchByName Tests', () {
       test(
           'Empty or whitespace query returns empty list without querying database',
