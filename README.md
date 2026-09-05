@@ -550,7 +550,7 @@ Establecer la estructura técnica, documentación inicial y sistema visual que u
 
 ## Fase 1 — Catálogo de publicaciones
 
-### Estado: EN PROGRESO
+### Estado: COMPLETADA
 
 ### Objetivo
 
@@ -578,7 +578,7 @@ Cada publicación podrá contener:
 * [x] Permitir búsqueda por código.
 * [x] Evitar duplicados evidentes.
 * [x] Crear una vista básica del catálogo si resulta necesaria.
-* [ ] Validar persistencia después de reiniciar la aplicación.
+* [x] Validar persistencia después de reiniciar la aplicación.
 
 ---
 
