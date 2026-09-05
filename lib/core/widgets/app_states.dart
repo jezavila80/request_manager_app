@@ -15,22 +15,25 @@ class AppLoadingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: AppSpacing.pAllLg,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
-            ),
-            AppSpacing.vSpacerMd,
-            Text(
-              message,
-              style: AppTypography.bodySecondary,
-              textAlign: TextAlign.center,
-            ),
-          ],
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: AppSpacing.pAllLg,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+              ),
+              AppSpacing.vSpacerMd,
+              Text(
+                message,
+                style: AppTypography.bodySecondary,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -54,34 +57,37 @@ class AppEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: AppSpacing.pAllLg,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 64.0,
-              color: AppColors.textDisabled,
-            ),
-            AppSpacing.vSpacerMd,
-            Text(
-              message,
-              style: AppTypography.bodyNormal.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: AppSpacing.pAllLg,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 64.0,
+                color: AppColors.textDisabled,
               ),
-              textAlign: TextAlign.center,
-            ),
-            if (actionLabel != null && onActionPressed != null) ...[
-              AppSpacing.vSpacerLg,
-              AppPrimaryButton(
-                text: actionLabel!,
-                onPressed: onActionPressed,
+              AppSpacing.vSpacerMd,
+              Text(
+                message,
+                style: AppTypography.bodyNormal.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
               ),
+              if (actionLabel != null && onActionPressed != null) ...[
+                AppSpacing.vSpacerLg,
+                AppPrimaryButton(
+                  text: actionLabel!,
+                  onPressed: onActionPressed,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -103,33 +109,36 @@ class AppErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: AppSpacing.pAllLg,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 64.0,
-              color: AppColors.error,
-            ),
-            AppSpacing.vSpacerMd,
-            Text(
-              message,
-              style: AppTypography.bodyNormal.copyWith(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: AppSpacing.pAllLg,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 64.0,
                 color: AppColors.error,
-                fontWeight: FontWeight.w500,
               ),
-              textAlign: TextAlign.center,
-            ),
-            AppSpacing.vSpacerLg,
-            AppSecondaryButton(
-              text: actionLabel,
-              onPressed: onRetryPressed,
-              icon: Icons.refresh_rounded,
-            ),
-          ],
+              AppSpacing.vSpacerMd,
+              Text(
+                message,
+                style: AppTypography.bodyNormal.copyWith(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              AppSpacing.vSpacerLg,
+              AppSecondaryButton(
+                text: actionLabel,
+                onPressed: onRetryPressed,
+                icon: Icons.refresh_rounded,
+              ),
+            ],
+          ),
         ),
       ),
     );
