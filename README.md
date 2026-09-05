@@ -566,6 +566,7 @@ Cada publicación podrá contener:
 * Tamaño.
 * Versión.
 * Estado activo/inactivo si posteriormente resulta necesario.
+* Orden alfabético por nombre ignorando signos de puntuación iniciales (`¡`, `¿`, `"`, `'`, `(`, `[`).
 
 ### Tareas
 
