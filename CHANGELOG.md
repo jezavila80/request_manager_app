@@ -11,6 +11,7 @@ El proyecto utiliza versionamiento:
 ### Fixed
 
 - Corregido el orden alfabético del catálogo en SQLite para ignorar signos de puntuación iniciales (`¡`, `¿`, `"`, `'`, `(`, `[`) en los nombres de publicaciones sin alterar el texto almacenado ni mostrado.
+- Corregido overflow vertical en la pantalla de Publicaciones al abrir el teclado durante una búsqueda.
 
 
 ## [0.1.7] - 2026-08-30
