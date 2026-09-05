@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/database/app_database.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -10,7 +8,6 @@ import '../../../../core/widgets/app_fields.dart';
 import '../../../../core/widgets/app_states.dart';
 import '../../../../core/widgets/app_status_badge.dart';
 import '../../data/publication_repository_impl.dart';
-import '../../data/seed/publication_persistence_validation_seed.dart';
 import '../../domain/publication.dart';
 import '../../domain/publication_repository.dart';
 import '../../domain/services/publication_catalog_search_service.dart';
@@ -187,78 +184,9 @@ class _PublicationsPageState extends State<PublicationsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Publicaciones',
-                style: AppTypography.titleSection,
-              ),
-              if (kDebugMode)
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.bug_report_outlined,
-                    color: AppColors.warning,
-                  ),
-                  tooltip: 'Herramientas de Desarrollo (Demo Seed)',
-                  onSelected: (value) async {
-                    final db = await AppDatabase.instance.database;
-                    if (value == 'load') {
-                      final count =
-                          await PublicationPersistenceValidationSeed.loadSeed(
-                              db);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Se cargaron $count registros demo de prueba.',
-                            ),
-                          ),
-                        );
-                        _loadPublications();
-                      }
-                    } else if (value == 'clear') {
-                      final count =
-                          await PublicationPersistenceValidationSeed.clearSeed(
-                              db);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Se eliminaron $count registros demo de prueba.',
-                            ),
-                          ),
-                        );
-                        _loadPublications();
-                      }
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'load',
-                      child: Row(
-                        children: [
-                          Icon(Icons.download_rounded,
-                              color: AppColors.success),
-                          SizedBox(width: 8),
-                          Text('Cargar datos de prueba'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'clear',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_sweep_rounded,
-                              color: AppColors.error),
-                          SizedBox(width: 8),
-                          Text('Limpiar datos de prueba'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-            ],
+          const Text(
+            'Publicaciones',
+            style: AppTypography.titleSection,
           ),
           AppSpacing.vSpacerMd,
           AppFormField(
