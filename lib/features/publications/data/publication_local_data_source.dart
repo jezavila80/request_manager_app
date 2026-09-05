@@ -45,13 +45,15 @@ class PublicationLocalDataSource {
     }
   }
 
+  static const String _nameSortExpression =
+      'CASE WHEN SUBSTR(${DatabaseConstants.columnName}, 1, 1) IN (\'¡\', \'¿\', \'"\', \'\'\'\', \'(\', \'[\') THEN LTRIM(SUBSTR(${DatabaseConstants.columnName}, 2)) ELSE ${DatabaseConstants.columnName} END COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC';
+
   Future<List<Publication>> getAll() async {
     try {
       final db = await _appDatabase.database;
       final maps = await db.query(
         DatabaseConstants.tablePublications,
-        orderBy:
-            '${DatabaseConstants.columnName} COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC',
+        orderBy: _nameSortExpression,
       );
       return maps.map((map) => PublicationMapper.fromMap(map)).toList();
     } on DatabaseException catch (e) {
@@ -73,8 +75,7 @@ class PublicationLocalDataSource {
       final maps = await db.query(
         DatabaseConstants.tablePublications,
         where: '${DatabaseConstants.columnIsActive} = 1',
-        orderBy:
-            '${DatabaseConstants.columnName} COLLATE NOCASE ASC, ${DatabaseConstants.columnId} ASC',
+        orderBy: _nameSortExpression,
       );
       return maps.map((map) => PublicationMapper.fromMap(map)).toList();
     } on DatabaseException catch (e) {

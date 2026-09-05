@@ -239,6 +239,103 @@ void main() {
       expect(list.every((p) => p.isActive), isTrue);
     });
 
+    group('Leading Punctuation Sorting Tests', () {
+      test('Sorts publications ignoring leading ¡, ¿, ", \', (, [', () async {
+        final p1 = Publication(name: 'Estudio bíblico');
+        final p2 = Publication(
+            name:
+                '¡Disfrute de la vida para siempre! Introducción a las enseñanzas de la Biblia');
+        final p3 = Publication(name: 'Biblia de Estudio');
+        final p4 = Publication(name: '¿Cómo ve el futuro? (tratado núm. 31)');
+        final p5 = Publication(name: 'Folleto informativo');
+
+        await dataSource.insert(p1);
+        await dataSource.insert(p2);
+        await dataSource.insert(p3);
+        await dataSource.insert(p4);
+        await dataSource.insert(p5);
+
+        final list = await dataSource.getActivePublications();
+        final names = list.map((p) => p.name).toList();
+
+        expect(names, [
+          'Biblia de Estudio',
+          '¿Cómo ve el futuro? (tratado núm. 31)',
+          '¡Disfrute de la vida para siempre! Introducción a las enseñanzas de la Biblia',
+          'Estudio bíblico',
+          'Folleto informativo',
+        ]);
+      });
+
+      test('Sorts other leading punctuation marks (", \', (, [)', () async {
+        final p1 = Publication(name: '"Publicación especial"');
+        final p2 = Publication(name: '\'Artículo de prueba\'');
+        final p3 = Publication(name: '(Manual especial)');
+        final p4 = Publication(name: '[Guía complementaria]');
+
+        await dataSource.insert(p1);
+        await dataSource.insert(p2);
+        await dataSource.insert(p3);
+        await dataSource.insert(p4);
+
+        final list = await dataSource.getActivePublications();
+        final names = list.map((p) => p.name).toList();
+
+        expect(names, [
+          '\'Artículo de prueba\'',
+          '[Guía complementaria]',
+          '(Manual especial)',
+          '"Publicación especial"',
+        ]);
+      });
+
+      test(
+          'Preserves original name string without modifying stored/returned value',
+          () async {
+        final pub = Publication(name: '¡Disfrute de la vida para siempre!');
+        final id = await dataSource.insert(pub);
+
+        final retrieved = await dataSource.getById(id);
+        expect(retrieved!.name, '¡Disfrute de la vida para siempre!');
+
+        final activeList = await dataSource.getActivePublications();
+        expect(activeList.first.name, '¡Disfrute de la vida para siempre!');
+      });
+
+      test(
+          'Internal punctuation is preserved and not treated as leading punctuation',
+          () async {
+        final p1 = Publication(name: 'La Biblia (edición grande)');
+        final p2 = Publication(name: 'Biblia de Estudio');
+
+        await dataSource.insert(p1);
+        await dataSource.insert(p2);
+
+        final list = await dataSource.getActivePublications();
+        final names = list.map((p) => p.name).toList();
+
+        expect(names, [
+          'Biblia de Estudio',
+          'La Biblia (edición grande)',
+        ]);
+      });
+
+      test('Tiebreaker id ASC works when conceptual sort keys are identical',
+          () async {
+        final p1 = Publication(name: '¡Biblia');
+        final p2 = Publication(name: 'Biblia');
+
+        final id1 = await dataSource.insert(p1);
+        final id2 = await dataSource.insert(p2);
+
+        final list = await dataSource.getActivePublications();
+        expect(list[0].id, id1);
+        expect(list[0].name, '¡Biblia');
+        expect(list[1].id, id2);
+        expect(list[1].name, 'Biblia');
+      });
+    });
+
     group('searchByName Tests', () {
       test(
           'Empty or whitespace query returns empty list without querying database',
