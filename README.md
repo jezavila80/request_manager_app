@@ -584,7 +584,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: PENDIENTE
+### Estado: EN DESARROLLO (Fase 2.1 completada)
 
 ### Objetivo
 
@@ -603,9 +603,8 @@ Un pedido:
 
 ### Tareas
 
-* [ ] Diseñar el modelo `Request`.
-* [ ] Diseñar el modelo `RequestItem`.
-* [ ] Crear las tablas SQLite necesarias.
+* [x] **2.1 Diseñar e implementar el modelo de dominio `Request` y `RequestItem`.**
+* [ ] **2.2 Crear las tablas SQLite y persistencia de solicitudes (`requests` / `request_items`).**
 * [ ] Crear la vista **Nuevo pedido**.
 * [ ] Permitir capturar solicitante.
 * [ ] Permitir capturar la fecha del pedido.

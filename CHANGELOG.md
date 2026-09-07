@@ -8,6 +8,14 @@ El proyecto utiliza versionamiento:
 
 ## [Unreleased]
 
+### Added
+
+- Creadas las entidades de dominio inmutables `Request` y `RequestItem` para la gestión de solicitudes y pedidos de publicaciones (Fase 2.1).
+- Implementado el cálculo derivado de estado de surtido (`RequestFulfillmentStatus`: `pending`, `partiallyFulfilled`, `fulfilled`).
+- Implementada evaluación de definición completa del pedido (`isFullyDefined`) basada en publicaciones en estado `COMPLETE`.
+- Soportado el reemplazo de referencias de publicaciones `DRAFT` por publicaciones `COMPLETE` o existentes preservando la identidad del renglón (`replaceItemPublication`).
+- Añadidos 42 tests unitarios de dominio para `Request`, `RequestItem` y reglas de negocio asociadas.
+
 ### Fixed
 
 - Corregido el orden alfabético del catálogo en SQLite para ignorar signos de puntuación iniciales (`¡`, `¿`, `"`, `'`, `(`, `[`) en los nombres de publicaciones sin alterar el texto almacenado ni mostrado.
