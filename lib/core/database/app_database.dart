@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'database_constants.dart';
 import 'migrations/migration_v1.dart';
+import 'migrations/migration_v2.dart';
 
 class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
@@ -24,19 +25,20 @@ class AppDatabase {
       await close();
     }
 
+    final options = OpenDatabaseOptions(
+      version: DatabaseConstants.databaseVersion,
+      onConfigure: _configureDB,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
+
     if (factory != null) {
-      _database = await factory.openDatabase(
-        path,
-        options: OpenDatabaseOptions(
-          version: DatabaseConstants.databaseVersion,
-          onCreate: _createDB,
-          onUpgrade: _upgradeDB,
-        ),
-      );
+      _database = await factory.openDatabase(path, options: options);
     } else {
       _database = await openDatabase(
         path,
         version: DatabaseConstants.databaseVersion,
+        onConfigure: _configureDB,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
       );
@@ -51,19 +53,29 @@ class AppDatabase {
     return await openDatabase(
       pathString,
       version: DatabaseConstants.databaseVersion,
+      onConfigure: _configureDB,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
+  }
+
+  Future<void> _configureDB(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON;');
   }
 
   Future<void> _createDB(Database db, int version) async {
     if (version >= 1) {
       await MigrationV1.execute(db);
     }
+    if (version >= 2) {
+      await MigrationV2.execute(db);
+    }
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    // Add logic for upgrades here in future versions.
+    if (oldVersion < 2) {
+      await MigrationV2.execute(db);
+    }
   }
 
   Future<void> close() async {
