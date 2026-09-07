@@ -604,7 +604,7 @@ Un pedido:
 ### Tareas
 
 * [x] **2.1 Diseñar e implementar el modelo de dominio `Request` y `RequestItem`.**
-* [ ] **2.2 Crear las tablas SQLite y persistencia de solicitudes (`requests` / `request_items`).**
+* [x] **2.2 Crear las tablas SQLite y persistencia de solicitudes (`requests` / `request_items`).**
 * [ ] Crear la vista **Nuevo pedido**.
 * [ ] Permitir capturar solicitante.
 * [ ] Permitir capturar la fecha del pedido.

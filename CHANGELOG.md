@@ -14,7 +14,10 @@ El proyecto utiliza versionamiento:
 - Implementado el cálculo derivado de estado de surtido (`RequestFulfillmentStatus`: `pending`, `partiallyFulfilled`, `fulfilled`).
 - Implementada evaluación de definición completa del pedido (`isFullyDefined`) basada en publicaciones en estado `COMPLETE`.
 - Soportado el reemplazo de referencias de publicaciones `DRAFT` por publicaciones `COMPLETE` o existentes preservando la identidad del renglón (`replaceItemPublication`).
-- Añadidos 42 tests unitarios de dominio para `Request`, `RequestItem` y reglas de negocio asociadas.
+- Creadas las tablas SQLite `requests` y `request_items` con la migración de esquema v1 -> v2 (`MigrationV2`) en `AppDatabase` (Fase 2.2).
+- Creados los mapeadores de datos `RequestMapper` y `RequestItemMapper`.
+- Implementadas restricciones relacionales de integridad (`FOREIGN KEY` `ON DELETE CASCADE` en requests, `ON DELETE RESTRICT` en publications), `CHECK` de cantidades y `UNIQUE(request_id, publication_id)`.
+- Añadidos 25 tests unitarios de esquema SQLite, migración v1 -> v2 y mapeadores (alcanzando 211 tests productivos en total).
 
 ### Fixed
 
