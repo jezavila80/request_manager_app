@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
+import 'package:request_manager_app/core/database/database_constants.dart';
 
 void main() {
   // Initialize sqflite_common_ffi for testing on the host environment (Windows)
@@ -415,7 +416,7 @@ void main() {
 
       // Check version
       final version = await dbReopened.getVersion();
-      expect(version, 1);
+      expect(version, DatabaseConstants.databaseVersion);
 
       // Check data persists
       final rows = await dbReopened.query('publications');

@@ -236,8 +236,7 @@ void main() {
 
     group('Domain Item Management Operations Tests', () {
       test('addItem appends item and updates updatedAt', () {
-        final request =
-            Request(requestedBy: 'Laura', createdAt: tCreatedAt);
+        final request = Request(requestedBy: 'Laura', createdAt: tCreatedAt);
         final item = RequestItem(publicationId: 10, quantityRequested: 4);
 
         final updated = request.addItem(item, updatedAt: tUpdatedAt);
