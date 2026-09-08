@@ -383,6 +383,9 @@ Para proteger la integridad de los datos a nivel de base de datos, se aplican la
 * **Estado activo/inactivo (`is_active`):** Almacenado como entero (`0` para inactivo, `1` para activo) bajo la restricción `CHECK (is_active IN (0, 1))`.
 * **Fechas:** Almacenadas en formato de texto ISO-8601, lo cual permite realizar conversiones y filtros temporales de manera nativa en Dart (`DateTime.parse`).
 
+> [!NOTE]
+> **Decisión de Diseño:** No se incluyó una restricción SQL de tipo `CHECK (updated_at >= created_at)` a nivel de tabla en SQLite. Esta invariante es garantizada y validada de forma estricta dentro del modelo de dominio de Dart (`Request`), asegurando que las reglas de negocio permanezcan centralizadas en el dominio y evitando falsos positivos por sutiles diferencias de formato de cadena ISO-8601 o husos horarios en SQLite.
+
 ### 📐 Capa de Persistencia, Registro y Consultas
 
 Para el registro y la consulta de publicaciones se implementó la arquitectura estructurada en base a la separación de responsabilidades:
@@ -584,7 +587,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fase 2.1 completada)
+### Estado: EN DESARROLLO (Fases 2.1 y 2.2 completadas)
 
 ### Objetivo
 
@@ -604,7 +607,7 @@ Un pedido:
 ### Tareas
 
 * [x] **2.1 Diseñar e implementar el modelo de dominio `Request` y `RequestItem`.**
-* [x] **2.2 Crear las tablas SQLite y persistencia de solicitudes (`requests` / `request_items`).**
+* [x] **2.2 Crear las tablas SQLite y esquema relacional de solicitudes (`requests` / `request_items`).**
 * [ ] Crear la vista **Nuevo pedido**.
 * [ ] Permitir capturar solicitante.
 * [ ] Permitir capturar la fecha del pedido.
