@@ -17,7 +17,11 @@ El proyecto utiliza versionamiento:
 - Creadas las tablas SQLite `requests` y `request_items` con la migración de esquema v1 -> v2 (`MigrationV2`) en `AppDatabase` (Fase 2.2).
 - Creados los mapeadores de datos `RequestMapper` y `RequestItemMapper`.
 - Implementadas restricciones relacionales de integridad (`FOREIGN KEY` `ON DELETE CASCADE` en requests, `ON DELETE RESTRICT` en publications), `CHECK` de cantidades y `UNIQUE(request_id, publication_id)`.
-- Añadidos 25 tests unitarios de esquema SQLite, migración v1 -> v2 y mapeadores (alcanzando 211 tests productivos en total).
+- Implementada la creación atómica y transaccional de solicitudes y renglones (`RequestLocalDataSourceImpl`, `RequestRepositoryImpl`, `CreateRequestUseCase`) (Fase 2.3).
+- Implementada la asignación y devolución inmutable de IDs generados por SQLite para la cabecera del pedido y cada uno de sus ítems conservando el orden de entrada exacto.
+- Añadidas validaciones pre-transacción (`isValidForOrder`, id nulo) y rollback atómico (todo o nada) mediante `db.transaction(...)`.
+- Creadas las excepciones de dominio/persistencia de solicitudes `RequestPersistenceException`, `InvalidRequestForCreationException`, `RequestAlreadyPersistedException` y `RequestItemAlreadyPersistedException`.
+- Añadidos tests unitarios e integrados para `RequestLocalDataSourceImpl`, `RequestRepositoryImpl` y `CreateRequestUseCase` alcanzando 232 tests productivos en total (incluyendo pruebas de persistencia física con reapertura de DB y rollback atómico con múltiples inserciones).
 
 ### Fixed
 
