@@ -22,6 +22,11 @@ El proyecto utiliza versionamiento:
 - Añadidas validaciones pre-transacción (`isValidForOrder`, id nulo) y rollback atómico (todo o nada) mediante `db.transaction(...)`.
 - Creadas las excepciones de dominio/persistencia de solicitudes `RequestPersistenceException`, `InvalidRequestForCreationException`, `RequestAlreadyPersistedException` y `RequestItemAlreadyPersistedException`.
 - Añadidos tests unitarios e integrados para `RequestLocalDataSourceImpl`, `RequestRepositoryImpl` y `CreateRequestUseCase` alcanzando 232 tests productivos en total (incluyendo pruebas de persistencia física con reapertura de DB y rollback atómico con múltiples inserciones).
+- Implementada la consulta productiva de solicitudes completas mediante `getAll` y `getById` en `RequestRepository` y `RequestLocalDataSource` (Fase 2.4).
+- Reconstrucción fiel de agregados `Request` + `RequestItem[]` desde SQLite preservando timestamps exactos (`createdAt`, `updatedAt`), notas nulas y orden estable de renglones (`ORDER BY id ASC`).
+- Orden determinista de solicitudes en `getAll` (`ORDER BY created_at DESC, id DESC`).
+- Verificación de integridad referencial de publicaciones al leer solicitudes en transacciones SQLite consistentes con mitigación de corrupción.
+- Añadidos 24 tests unitarios y de integración para `getAll` y `getById`, alcanzando 256 tests productivos en total.
 
 ### Fixed
 

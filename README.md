@@ -587,7 +587,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2 y 2.3 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3 y 2.4 completadas)
 
 ### Objetivo
 
@@ -609,6 +609,7 @@ Un pedido:
 * [x] **2.1 Diseñar e implementar el modelo de dominio `Request` y `RequestItem`.**
 * [x] **2.2 Crear las tablas SQLite y esquema relacional de solicitudes (`requests` / `request_items`).**
 * [x] **2.3 Persistencia de creación de solicitudes (`RequestLocalDataSource`, `RequestRepository`, `CreateRequestUseCase`).**
+* [x] **2.4 Consulta de solicitudes (`getAll`, `getById`).**
 * [ ] Crear la vista **Nuevo pedido**.
 * [ ] Permitir capturar solicitante.
 * [ ] Permitir capturar la fecha del pedido.
