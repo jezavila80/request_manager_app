@@ -29,4 +29,17 @@ class RequestRepositoryImpl implements RequestRepository {
 
     return await _localDataSource.create(request);
   }
+
+  @override
+  Future<List<Request>> getAll() async {
+    return await _localDataSource.getAll();
+  }
+
+  @override
+  Future<Request?> getById(int id) async {
+    if (id <= 0) {
+      throw ArgumentError('El ID de la solicitud debe ser mayor a 0.');
+    }
+    return await _localDataSource.getById(id);
+  }
 }
