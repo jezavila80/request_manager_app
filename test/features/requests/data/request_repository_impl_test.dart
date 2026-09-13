@@ -8,6 +8,10 @@ import 'package:request_manager_app/features/requests/domain/request_item.dart';
 class FakeRequestLocalDataSource implements RequestLocalDataSource {
   Request? passedRequest;
   Request? responseToReturn;
+  List<Request> allRequestsToReturn = [];
+  Request? getByIdToReturn;
+  int? passedGetByIdId;
+  bool getAllCalled = false;
 
   @override
   Future<Request> create(Request request) async {
@@ -19,6 +23,18 @@ class FakeRequestLocalDataSource implements RequestLocalDataSource {
       id: 10,
       items: request.items.map((i) => i.copyWith(id: 100)).toList(),
     );
+  }
+
+  @override
+  Future<List<Request>> getAll() async {
+    getAllCalled = true;
+    return allRequestsToReturn;
+  }
+
+  @override
+  Future<Request?> getById(int id) async {
+    passedGetByIdId = id;
+    return getByIdToReturn;
   }
 }
 
@@ -84,6 +100,58 @@ void main() {
         throwsA(isA<RequestItemAlreadyPersistedException>()),
       );
       expect(fakeDataSource.passedRequest, isNull);
+    });
+
+    test('getAll delegates to RequestLocalDataSource and returns list',
+        () async {
+      final sampleRequests = [
+        Request(
+          id: 1,
+          requestedBy: 'Carlos',
+          items: [RequestItem(id: 1, publicationId: 10, quantityRequested: 1)],
+        ),
+      ];
+      fakeDataSource.allRequestsToReturn = sampleRequests;
+
+      final result = await repository.getAll();
+
+      expect(fakeDataSource.getAllCalled, isTrue);
+      expect(result, equals(sampleRequests));
+    });
+
+    test('getById delegates valid id to RequestLocalDataSource', () async {
+      final sampleRequest = Request(
+        id: 7,
+        requestedBy: 'Elena',
+        items: [RequestItem(id: 2, publicationId: 10, quantityRequested: 3)],
+      );
+      fakeDataSource.getByIdToReturn = sampleRequest;
+
+      final result = await repository.getById(7);
+
+      expect(fakeDataSource.passedGetByIdId, equals(7));
+      expect(result, equals(sampleRequest));
+    });
+
+    test('getById returns null when request is not found', () async {
+      fakeDataSource.getByIdToReturn = null;
+
+      final result = await repository.getById(99);
+
+      expect(fakeDataSource.passedGetByIdId, equals(99));
+      expect(result, isNull);
+    });
+
+    test('getById throws ArgumentError when id <= 0', () async {
+      expect(
+        () => repository.getById(0),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => repository.getById(-1),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(fakeDataSource.passedGetByIdId, isNull);
     });
   });
 }

@@ -16,6 +16,12 @@ class FakeRequestRepository implements RequestRepository {
       items: request.items.map((i) => i.copyWith(id: 808)).toList(),
     );
   }
+
+  @override
+  Future<List<Request>> getAll() async => [];
+
+  @override
+  Future<Request?> getById(int id) async => null;
 }
 
 void main() {
