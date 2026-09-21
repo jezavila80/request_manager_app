@@ -27,6 +27,9 @@ El proyecto utiliza versionamiento:
 - Orden determinista de solicitudes en `getAll` (`ORDER BY created_at DESC, id DESC`).
 - Verificación de integridad referencial de publicaciones al leer solicitudes en transacciones SQLite consistentes con mitigación de corrupción.
 - Añadidos 24 tests unitarios y de integración para `getAll` y `getById`, alcanzando 256 tests productivos en total.
+- Establecida la infraestructura central de tiempo UTC con `AppClock` (y su implementación productiva `SystemClock`) y `AppDateTime` para normalización y conversión temporal (Fase 2.4.1).
+- Creado helper de pruebas `FixedClock` bajo `test/core/time/` para inyección temporal determinista en tests.
+- Añadidos 20 tests unitarios y de integración para la infraestructura temporal UTC y consistencia de agregados, alcanzando 276 tests productivos en total (276/276 passing).
 
 ### Fixed
 
@@ -35,6 +38,13 @@ El proyecto utiliza versionamiento:
 
 ### Changed
 
+- Normalizados a UTC todos los timestamps de dominio en `Request` y `Publication`, garantizando `isUtc == true` y eliminando el uso implícito de `DateTime.now()` dentro de las entidades (Fase 2.4.1).
+- Exigidos timestamps explícitos (`createdAt`, `updatedAt`) en los factories de `Request` y `Publication` (incluyendo `Publication.quickDraft`).
+- Exigido `updatedAt` explícito en las 5 operaciones de mutación de negocio de `Request` (`addItem`, `removeItem`, `replaceItemPublication`, `updateItemQuantityRequested`, `updateItemQuantityFulfilled`).
+- Actualizada la semántica de `copyWith` en `Request` y `Publication` para preservar `updatedAt` por defecto (`updatedAt ?? this.updatedAt`), eliminando mutaciones temporales en copias estructurales.
+- Centralizada la serialización hacia SQLite en `AppDateTime.toStorage()` (formato canónico ISO-8601 UTC con sufijo `Z`) y deserialización en `AppDateTime.fromStorage()` (garantizando `isUtc == true`).
+- Eliminados los fallbacks a `DateTime.now()` en la rehidratación de `RequestMapper` y `PublicationMapper`, lanzando `FormatException` ante datos temporales nulos o inválidos.
+- Eliminados workarounds redundantes de `updatedAt: request.updatedAt` en `RequestLocalDataSourceImpl` (`create`, `getAll`, `getById`).
 - Retirado tooling temporal de desarrollo y botones debug de datos demo en la pantalla de Publicaciones tras completar la validación de persistencia y cerrar formalmente la Fase 1.
 
 

@@ -587,7 +587,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3 y 2.4 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4 y 2.4.1 completadas)
 
 ### Objetivo
 
@@ -610,6 +610,7 @@ Un pedido:
 * [x] **2.2 Crear las tablas SQLite y esquema relacional de solicitudes (`requests` / `request_items`).**
 * [x] **2.3 Persistencia de creación de solicitudes (`RequestLocalDataSource`, `RequestRepository`, `CreateRequestUseCase`).**
 * [x] **2.4 Consulta de solicitudes (`getAll`, `getById`).**
+* [x] **2.4.1 Infraestructura temporal UTC y refactorización de timestamps (`AppClock`, `AppDateTime`, timestamps UTC de dominio, persistencia ISO-8601 con 'Z' y `updatedAt` explícito en mutaciones).**
 * [ ] Crear la vista **Nuevo pedido**.
 * [ ] Permitir capturar solicitante.
 * [ ] Permitir capturar la fecha del pedido.
