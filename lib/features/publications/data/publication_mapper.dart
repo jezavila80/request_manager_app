@@ -1,4 +1,5 @@
 import '../../../core/database/database_constants.dart';
+import '../../../core/time/app_date_time.dart';
 import '../domain/publication.dart';
 import '../domain/tri_state_value.dart';
 
@@ -42,9 +43,9 @@ class PublicationMapper {
       DatabaseConstants.columnVersionValue: publication.version.value,
       DatabaseConstants.columnIsActive: publication.isActive ? 1 : 0,
       DatabaseConstants.columnCreatedAt:
-          publication.createdAt.toIso8601String(),
+          AppDateTime.toStorage(publication.createdAt),
       DatabaseConstants.columnUpdatedAt:
-          publication.updatedAt.toIso8601String(),
+          AppDateTime.toStorage(publication.updatedAt),
     };
   }
 
@@ -58,10 +59,18 @@ class PublicationMapper {
 
     final createdAtStr = map[DatabaseConstants.columnCreatedAt] as String?;
     final updatedAtStr = map[DatabaseConstants.columnUpdatedAt] as String?;
-    final createdAt =
-        createdAtStr != null ? DateTime.parse(createdAtStr) : null;
-    final updatedAt =
-        updatedAtStr != null ? DateTime.parse(updatedAtStr) : null;
+
+    if (createdAtStr == null || createdAtStr.trim().isEmpty) {
+      throw const FormatException(
+          'Falta la columna obligatoria created_at en la publicación.');
+    }
+    if (updatedAtStr == null || updatedAtStr.trim().isEmpty) {
+      throw const FormatException(
+          'Falta la columna obligatoria updated_at en la publicación.');
+    }
+
+    final createdAt = AppDateTime.fromStorage(createdAtStr);
+    final updatedAt = AppDateTime.fromStorage(updatedAtStr);
 
     final sizeStateStr = map[DatabaseConstants.columnSizeState] as String? ??
         DatabaseConstants.stateUndefined;

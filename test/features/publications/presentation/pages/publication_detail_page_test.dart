@@ -1,3 +1,4 @@
+import '../../../../helpers/test_publication_factory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/core/widgets/app_status_badge.dart';
@@ -15,7 +16,7 @@ void main() {
   group('PublicationDetailPage Widget Tests', () {
     testWidgets('Renders all fields for complete publication with code',
         (tester) async {
-      final pub = Publication(
+      final pub = createTestPublication(
         id: 1,
         name: 'Biblia de Estudio',
         code: 'RBI-8',
@@ -43,7 +44,7 @@ void main() {
     testWidgets(
         'Renders -Sin código-, default descriptions and mapped TriState values',
         (tester) async {
-      final pub = Publication(
+      final pub = createTestPublication(
         id: 2,
         name: 'Folleto Informativo',
         code: null,

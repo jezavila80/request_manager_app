@@ -1,8 +1,8 @@
+import '../../../helpers/test_publication_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
 import 'package:request_manager_app/features/publications/data/publication_local_data_source.dart';
-import 'package:request_manager_app/features/publications/domain/publication.dart';
 import 'package:request_manager_app/features/publications/domain/publication_exceptions.dart';
 import 'package:request_manager_app/features/publications/domain/tri_state_value.dart';
 
@@ -27,7 +27,7 @@ void main() {
 
     test('Insert Draft publication successfully and returns positive ID',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Biblia Borrador',
         code: null,
       );
@@ -44,7 +44,7 @@ void main() {
 
     test('Insert Complete publication successfully and returns positive ID',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Biblia Letra Grande',
         code: 'RBI-8',
         type: 'Libro',
@@ -66,8 +66,8 @@ void main() {
 
     test('Multiple Drafts without code does not throw duplicate key error',
         () async {
-      final pub1 = Publication(name: 'Draft 1', code: null);
-      final pub2 = Publication(name: 'Draft 2', code: null);
+      final pub1 = createTestPublication(name: 'Draft 1', code: null);
+      final pub2 = createTestPublication(name: 'Draft 2', code: null);
 
       final id1 = await dataSource.insert(pub1);
       final id2 = await dataSource.insert(pub2);
@@ -79,8 +79,8 @@ void main() {
     test(
         'Insert publication with duplicate code throws DuplicatePublicationCodeException',
         () async {
-      final pub1 = Publication(name: 'Biblia 1', code: 'RBI-8');
-      final pub2 = Publication(
+      final pub1 = createTestPublication(name: 'Biblia 1', code: 'RBI-8');
+      final pub2 = createTestPublication(
           name: 'Biblia 2', code: 'rbi-8'); // Case-insensitive duplicate
 
       await dataSource.insert(pub1);
@@ -107,7 +107,7 @@ void main() {
     });
 
     test('Insert and getById retrieves exact Draft publication', () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Draft Test',
         description: 'Borrador descriptivo',
       );
@@ -133,8 +133,8 @@ void main() {
     test(
         'Insert and getById retrieves exact Complete publication with TriState values and isActive=false',
         () async {
-      final now = DateTime.now();
-      final publication = Publication(
+      final now = DateTime.utc(2026, 9, 21, 12, 0);
+      final publication = createTestPublication(
         name: 'Complete Test',
         code: 'COMP-1',
         type: 'Tratado',
@@ -163,7 +163,7 @@ void main() {
     });
 
     test('Insert and getById roundtrips size/version not_applicable', () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Not Applicable Test',
         size: const TriStateValue.noAplica(),
         version: const TriStateValue.noAplica(),
@@ -180,10 +180,10 @@ void main() {
     test(
         'getAll() returns all publications sorted by name COLLATE NOCASE ASC, and secondary id ASC',
         () async {
-      final pub1 = Publication(name: 'revistilla');
-      final pub2 = Publication(name: 'Biblia');
-      final pub3 = Publication(name: 'Folleto');
-      final pub4 = Publication(
+      final pub1 = createTestPublication(name: 'revistilla');
+      final pub2 = createTestPublication(name: 'Biblia');
+      final pub3 = createTestPublication(name: 'Folleto');
+      final pub4 = createTestPublication(
           name: 'Biblia'); // Duplicate name to test secondary sort by ID
 
       final id1 = await dataSource.insert(pub1);
@@ -215,10 +215,10 @@ void main() {
     test(
         'getActivePublications returns only active publications sorted by name ASC, id ASC',
         () async {
-      final pub1 = Publication(name: 'revistilla', isActive: true);
-      final pub2 = Publication(name: 'Biblia', isActive: true);
-      final pub3 = Publication(name: 'Folleto', isActive: false);
-      final pub4 = Publication(name: 'Biblia', isActive: true);
+      final pub1 = createTestPublication(name: 'revistilla', isActive: true);
+      final pub2 = createTestPublication(name: 'Biblia', isActive: true);
+      final pub3 = createTestPublication(name: 'Folleto', isActive: false);
+      final pub4 = createTestPublication(name: 'Biblia', isActive: true);
 
       final id1 = await dataSource.insert(pub1);
       final id2 = await dataSource.insert(pub2);
@@ -241,13 +241,14 @@ void main() {
 
     group('Leading Punctuation Sorting Tests', () {
       test('Sorts publications ignoring leading ¡, ¿, ", \', (, [', () async {
-        final p1 = Publication(name: 'Estudio bíblico');
-        final p2 = Publication(
+        final p1 = createTestPublication(name: 'Estudio bíblico');
+        final p2 = createTestPublication(
             name:
                 '¡Disfrute de la vida para siempre! Introducción a las enseñanzas de la Biblia');
-        final p3 = Publication(name: 'Biblia de Estudio');
-        final p4 = Publication(name: '¿Cómo ve el futuro? (tratado núm. 31)');
-        final p5 = Publication(name: 'Folleto informativo');
+        final p3 = createTestPublication(name: 'Biblia de Estudio');
+        final p4 = createTestPublication(
+            name: '¿Cómo ve el futuro? (tratado núm. 31)');
+        final p5 = createTestPublication(name: 'Folleto informativo');
 
         await dataSource.insert(p1);
         await dataSource.insert(p2);
@@ -268,10 +269,10 @@ void main() {
       });
 
       test('Sorts other leading punctuation marks (", \', (, [)', () async {
-        final p1 = Publication(name: '"Publicación especial"');
-        final p2 = Publication(name: '\'Artículo de prueba\'');
-        final p3 = Publication(name: '(Manual especial)');
-        final p4 = Publication(name: '[Guía complementaria]');
+        final p1 = createTestPublication(name: '"Publicación especial"');
+        final p2 = createTestPublication(name: '\'Artículo de prueba\'');
+        final p3 = createTestPublication(name: '(Manual especial)');
+        final p4 = createTestPublication(name: '[Guía complementaria]');
 
         await dataSource.insert(p1);
         await dataSource.insert(p2);
@@ -292,7 +293,8 @@ void main() {
       test(
           'Preserves original name string without modifying stored/returned value',
           () async {
-        final pub = Publication(name: '¡Disfrute de la vida para siempre!');
+        final pub =
+            createTestPublication(name: '¡Disfrute de la vida para siempre!');
         final id = await dataSource.insert(pub);
 
         final retrieved = await dataSource.getById(id);
@@ -305,8 +307,8 @@ void main() {
       test(
           'Internal punctuation is preserved and not treated as leading punctuation',
           () async {
-        final p1 = Publication(name: 'La Biblia (edición grande)');
-        final p2 = Publication(name: 'Biblia de Estudio');
+        final p1 = createTestPublication(name: 'La Biblia (edición grande)');
+        final p2 = createTestPublication(name: 'Biblia de Estudio');
 
         await dataSource.insert(p1);
         await dataSource.insert(p2);
@@ -322,8 +324,8 @@ void main() {
 
       test('Tiebreaker id ASC works when conceptual sort keys are identical',
           () async {
-        final p1 = Publication(name: '¡Biblia');
-        final p2 = Publication(name: 'Biblia');
+        final p1 = createTestPublication(name: '¡Biblia');
+        final p2 = createTestPublication(name: 'Biblia');
 
         final id1 = await dataSource.insert(p1);
         final id2 = await dataSource.insert(p2);
@@ -354,8 +356,10 @@ void main() {
       });
 
       test('Search excludes inactive publications', () async {
-        final active = Publication(name: 'Biblia Activa', isActive: true);
-        final inactive = Publication(name: 'Biblia Inactiva', isActive: false);
+        final active =
+            createTestPublication(name: 'Biblia Activa', isActive: true);
+        final inactive =
+            createTestPublication(name: 'Biblia Inactiva', isActive: false);
 
         await dataSource.insert(active);
         await dataSource.insert(inactive);
@@ -366,9 +370,9 @@ void main() {
       });
 
       test('Search includes both DRAFT and COMPLETE publications', () async {
-        final draft = Publication(
+        final draft = createTestPublication(
             name: 'Biblia Borrador', code: null, type: null); // Draft status
-        final complete = Publication(
+        final complete = createTestPublication(
             name: 'Biblia Completa',
             code: 'BC-1',
             type: 'Libro'); // Complete status
@@ -384,7 +388,7 @@ void main() {
       });
 
       test('Search is case-insensitive', () async {
-        final pub = Publication(name: 'BiBlIa ReInA');
+        final pub = createTestPublication(name: 'BiBlIa ReInA');
         await dataSource.insert(pub);
 
         final r1 = await dataSource.searchByName('biblia');
@@ -398,7 +402,7 @@ void main() {
       });
 
       test('Search trims query whitespace', () async {
-        final pub = Publication(name: 'Biblia');
+        final pub = createTestPublication(name: 'Biblia');
         await dataSource.insert(pub);
 
         final results = await dataSource.searchByName('   biblia   ');
@@ -408,7 +412,7 @@ void main() {
 
       test('Search respects limit and defaults to 20', () async {
         for (int i = 0; i < 25; i++) {
-          await dataSource.insert(Publication(name: 'Biblia $i'));
+          await dataSource.insert(createTestPublication(name: 'Biblia $i'));
         }
 
         final defaultLimitResults = await dataSource.searchByName('biblia');
@@ -422,11 +426,15 @@ void main() {
       test(
           'Search ranks exactMatch -> startsWith -> contains, then alphabetical, then ID',
           () async {
-        final pub1 = Publication(name: 'Manual sobre la Biblia'); // contains
-        final pub2 = Publication(name: 'Biblia'); // exact
-        final pub3 = Publication(name: 'Santa Biblia de bolsillo'); // contains
-        final pub4 = Publication(name: 'Biblia Reina Valera'); // startsWith
-        final pub5 = Publication(name: 'Biblia Letra Grande'); // startsWith
+        final pub1 =
+            createTestPublication(name: 'Manual sobre la Biblia'); // contains
+        final pub2 = createTestPublication(name: 'Biblia'); // exact
+        final pub3 =
+            createTestPublication(name: 'Santa Biblia de bolsillo'); // contains
+        final pub4 =
+            createTestPublication(name: 'Biblia Reina Valera'); // startsWith
+        final pub5 =
+            createTestPublication(name: 'Biblia Letra Grande'); // startsWith
 
         await dataSource.insert(pub1);
         final exactId = await dataSource.insert(pub2);
@@ -459,11 +467,12 @@ void main() {
 
       test('Search escapes LIKE wildcard characters %, _ and \\ safely',
           () async {
-        final matchPercent = Publication(name: 'Manual 100%');
-        final nonMatchPercent = Publication(name: 'Manual 100a');
-        final matchUnderscore = Publication(name: 'Manual_Especial');
-        final nonMatchUnderscore = Publication(name: 'ManualXEspecial');
-        final matchBackslash = Publication(name: 'Manual\\Backslash');
+        final matchPercent = createTestPublication(name: 'Manual 100%');
+        final nonMatchPercent = createTestPublication(name: 'Manual 100a');
+        final matchUnderscore = createTestPublication(name: 'Manual_Especial');
+        final nonMatchUnderscore =
+            createTestPublication(name: 'ManualXEspecial');
+        final matchBackslash = createTestPublication(name: 'Manual\\Backslash');
 
         await dataSource.insert(matchPercent);
         await dataSource.insert(nonMatchPercent);
@@ -506,9 +515,9 @@ void main() {
       });
 
       test('Search excludes inactive publications', () async {
-        final active =
-            Publication(name: 'Biblia Activa', code: 'RBI-8', isActive: true);
-        final inactive = Publication(
+        final active = createTestPublication(
+            name: 'Biblia Activa', code: 'RBI-8', isActive: true);
+        final inactive = createTestPublication(
             name: 'Biblia Inactiva', code: 'RBI-9', isActive: false);
 
         await dataSource.insert(active);
@@ -521,15 +530,15 @@ void main() {
 
       test('Search includes both DRAFT with code and COMPLETE publications',
           () async {
-        final draftWithCode = Publication(
+        final draftWithCode = createTestPublication(
             name: 'Biblia Borrador',
             code: 'RBI-TEMP',
             type: null); // Draft status
-        final draftWithoutCode = Publication(
+        final draftWithoutCode = createTestPublication(
             name: 'Biblia Borrador 2',
             code: null,
             type: null); // Draft status, no code
-        final complete = Publication(
+        final complete = createTestPublication(
             name: 'Biblia Completa',
             code: 'RBI-8',
             type: 'Libro'); // Complete status
@@ -547,7 +556,7 @@ void main() {
       });
 
       test('Search is case-insensitive', () async {
-        final pub = Publication(name: 'Biblia Reina', code: 'RbI-8');
+        final pub = createTestPublication(name: 'Biblia Reina', code: 'RbI-8');
         await dataSource.insert(pub);
 
         final r1 = await dataSource.searchByCode('rbi-8');
@@ -561,7 +570,7 @@ void main() {
       });
 
       test('Search trims query whitespace', () async {
-        final pub = Publication(name: 'Biblia', code: 'RBI-8');
+        final pub = createTestPublication(name: 'Biblia', code: 'RBI-8');
         await dataSource.insert(pub);
 
         final results = await dataSource.searchByCode('   rbi-8   ');
@@ -571,7 +580,8 @@ void main() {
 
       test('Search respects limit and defaults to 20', () async {
         for (int i = 0; i < 25; i++) {
-          await dataSource.insert(Publication(name: 'Biblia $i', code: 'R-$i'));
+          await dataSource
+              .insert(createTestPublication(name: 'Biblia $i', code: 'R-$i'));
         }
 
         final defaultLimitResults = await dataSource.searchByCode('R');
@@ -584,11 +594,12 @@ void main() {
       test(
           'Search ranks exactMatch -> startsWith -> contains, then alphabetical, then ID',
           () async {
-        final pub1 = Publication(name: 'Contains 1', code: 'XRBI-1');
-        final pub2 = Publication(name: 'Exact', code: 'RBI');
-        final pub3 = Publication(name: 'Contains 2', code: 'A-RBI-2');
-        final pub4 = Publication(name: 'StartsWith 1', code: 'RBI-12');
-        final pub5 = Publication(name: 'StartsWith 2', code: 'RBI-8');
+        final pub1 = createTestPublication(name: 'Contains 1', code: 'XRBI-1');
+        final pub2 = createTestPublication(name: 'Exact', code: 'RBI');
+        final pub3 = createTestPublication(name: 'Contains 2', code: 'A-RBI-2');
+        final pub4 =
+            createTestPublication(name: 'StartsWith 1', code: 'RBI-12');
+        final pub5 = createTestPublication(name: 'StartsWith 2', code: 'RBI-8');
 
         final id1 = await dataSource.insert(pub1);
         final id2 = await dataSource.insert(pub2);
@@ -623,12 +634,16 @@ void main() {
 
       test('Search escapes LIKE wildcard characters %, _ and \\ safely',
           () async {
-        final matchPercent = Publication(name: 'Percent', code: 'RBI%8');
-        final nonMatchPercent = Publication(name: 'Percent No', code: 'RBI88');
-        final matchUnderscore = Publication(name: 'Underscore', code: 'RBI_8');
+        final matchPercent =
+            createTestPublication(name: 'Percent', code: 'RBI%8');
+        final nonMatchPercent =
+            createTestPublication(name: 'Percent No', code: 'RBI88');
+        final matchUnderscore =
+            createTestPublication(name: 'Underscore', code: 'RBI_8');
         final nonMatchUnderscore =
-            Publication(name: 'Underscore No', code: 'RBIA8');
-        final matchBackslash = Publication(name: 'Backslash', code: 'RBI\\8');
+            createTestPublication(name: 'Underscore No', code: 'RBIA8');
+        final matchBackslash =
+            createTestPublication(name: 'Backslash', code: 'RBI\\8');
 
         await dataSource.insert(matchPercent);
         await dataSource.insert(nonMatchPercent);
@@ -656,8 +671,8 @@ void main() {
     group('findByExactCode and findActiveByName Tests', () {
       test('findByExactCode returns exact active publication case-insensitive',
           () async {
-        final active =
-            Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
+        final active = createTestPublication(
+            name: 'Biblia 1', code: 'RBI-8', isActive: true);
         await dataSource.insert(active);
 
         final r1 = await dataSource.findByExactCode('rbi-8');
@@ -675,7 +690,7 @@ void main() {
       test(
           'findByExactCode returns exact inactive publication case-insensitive',
           () async {
-        final inactive = Publication(
+        final inactive = createTestPublication(
             name: 'Biblia Inactiva', code: 'RBI-8', isActive: false);
         await dataSource.insert(inactive);
 
@@ -712,11 +727,11 @@ void main() {
       test(
           'findActiveByName returns exact matches case-insensitive sorted by name COLLATE NOCASE ASC, id ASC',
           () async {
-        final p1 = Publication(
+        final p1 = createTestPublication(
             name: 'Biblia Letra Grande', code: 'P1', isActive: true);
-        final p2 = Publication(
+        final p2 = createTestPublication(
             name: 'biblia letra grande', code: 'P2', isActive: true);
-        final p3 = Publication(
+        final p3 = createTestPublication(
             name: 'Biblia Letra Chica',
             code: 'P3',
             isActive: true); // different name
@@ -733,9 +748,10 @@ void main() {
       });
 
       test('findActiveByName excludes inactive publications', () async {
-        final active = Publication(name: 'Biblia', code: 'P1', isActive: true);
+        final active =
+            createTestPublication(name: 'Biblia', code: 'P1', isActive: true);
         final inactive =
-            Publication(name: 'Biblia', code: 'P2', isActive: false);
+            createTestPublication(name: 'Biblia', code: 'P2', isActive: false);
 
         await dataSource.insert(active);
         await dataSource.insert(inactive);

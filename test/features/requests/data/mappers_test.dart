@@ -7,8 +7,8 @@ import 'package:request_manager_app/features/requests/domain/request_item.dart';
 
 void main() {
   group('Request and RequestItem Mapper Unit Tests', () {
-    final tCreatedAt = DateTime(2026, 9, 7, 10, 0);
-    final tUpdatedAt = DateTime(2026, 9, 7, 12, 0);
+    final tCreatedAt = DateTime.utc(2026, 9, 7, 10, 0);
+    final tUpdatedAt = DateTime.utc(2026, 9, 7, 12, 0);
 
     test('RequestItemMapper.toMap includes all database columns', () {
       final item = RequestItem(
@@ -44,7 +44,9 @@ void main() {
       expect(item.quantityFulfilled, equals(3));
     });
 
-    test('RequestMapper.toMap converts Request header to database map', () {
+    test(
+        'RequestMapper.toMap converts Request header to database map with UTC "Z" suffix',
+        () {
       final request = Request(
         id: 15,
         requestedBy: 'Juan Pérez',
@@ -58,13 +60,41 @@ void main() {
       expect(map[DatabaseConstants.columnId], equals(15));
       expect(map[DatabaseConstants.columnRequestedBy], equals('Juan Pérez'));
       expect(map[DatabaseConstants.columnNotes], equals('Notas de entrega'));
-      expect(
-          map[DatabaseConstants.columnCreatedAt], tCreatedAt.toIso8601String());
-      expect(
-          map[DatabaseConstants.columnUpdatedAt], tUpdatedAt.toIso8601String());
+      expect((map[DatabaseConstants.columnCreatedAt] as String).endsWith('Z'),
+          isTrue);
+      expect((map[DatabaseConstants.columnUpdatedAt] as String).endsWith('Z'),
+          isTrue);
+      expect(map[DatabaseConstants.columnCreatedAt],
+          equals('2026-09-07T10:00:00.000Z'));
+      expect(map[DatabaseConstants.columnUpdatedAt],
+          equals('2026-09-07T12:00:00.000Z'));
     });
 
-    test('RequestMapper.fromMap reconstructs Request with associated items',
+    test(
+        'RequestMapper.toMap converts local DateTime input to UTC ISO-8601 with "Z" suffix',
+        () {
+      final localCreated = DateTime(2026, 9, 7, 8, 0);
+      final localUpdated = DateTime(2026, 9, 7, 9, 0);
+
+      final request = Request(
+        id: 16,
+        requestedBy: 'María Gómez',
+        createdAt: localCreated,
+        updatedAt: localUpdated,
+      );
+
+      final map = RequestMapper.toMap(request);
+      final storedCreated = map[DatabaseConstants.columnCreatedAt] as String;
+      final storedUpdated = map[DatabaseConstants.columnUpdatedAt] as String;
+
+      expect(storedCreated.endsWith('Z'), isTrue);
+      expect(storedUpdated.endsWith('Z'), isTrue);
+      expect(storedCreated, equals(localCreated.toUtc().toIso8601String()));
+      expect(storedUpdated, equals(localUpdated.toUtc().toIso8601String()));
+    });
+
+    test(
+        'RequestMapper.fromMap reconstructs Request with associated items and UTC timestamps',
         () {
       final item = RequestItem(
         id: 101,
@@ -76,8 +106,8 @@ void main() {
         DatabaseConstants.columnId: 15,
         DatabaseConstants.columnRequestedBy: 'Juan Pérez',
         DatabaseConstants.columnNotes: 'Notas de entrega',
-        DatabaseConstants.columnCreatedAt: tCreatedAt.toIso8601String(),
-        DatabaseConstants.columnUpdatedAt: tUpdatedAt.toIso8601String(),
+        DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000Z',
+        DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000Z',
       };
 
       final request = RequestMapper.fromMap(map, items: [item]);
@@ -87,8 +117,58 @@ void main() {
       expect(request.notes, equals('Notas de entrega'));
       expect(request.items.length, equals(1));
       expect(request.items.first, equals(item));
+      expect(request.createdAt.isUtc, isTrue);
+      expect(request.updatedAt.isUtc, isTrue);
       expect(request.createdAt, equals(tCreatedAt));
       expect(request.updatedAt, equals(tUpdatedAt));
+    });
+
+    test(
+        'RequestMapper.fromMap accepts legacy string without "Z" and produces UTC DateTime',
+        () {
+      final map = {
+        DatabaseConstants.columnId: 20,
+        DatabaseConstants.columnRequestedBy: 'Ana',
+        DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000',
+        DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000',
+      };
+
+      final request = RequestMapper.fromMap(map);
+
+      expect(request.createdAt.isUtc, isTrue);
+      expect(request.updatedAt.isUtc, isTrue);
+    });
+
+    test(
+        'RequestMapper.fromMap throws FormatException when created_at or updated_at is null or empty',
+        () {
+      final validMap = {
+        DatabaseConstants.columnId: 1,
+        DatabaseConstants.columnRequestedBy: 'Usuario',
+        DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000Z',
+        DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000Z',
+      };
+
+      final mapNoCreatedAt = Map<String, Object?>.from(validMap)
+        ..remove(DatabaseConstants.columnCreatedAt);
+      expect(
+        () => RequestMapper.fromMap(mapNoCreatedAt),
+        throwsA(isA<FormatException>()),
+      );
+
+      final mapNoUpdatedAt = Map<String, Object?>.from(validMap)
+        ..remove(DatabaseConstants.columnUpdatedAt);
+      expect(
+        () => RequestMapper.fromMap(mapNoUpdatedAt),
+        throwsA(isA<FormatException>()),
+      );
+
+      final mapEmptyCreatedAt = Map<String, Object?>.from(validMap)
+        ..[DatabaseConstants.columnCreatedAt] = '   ';
+      expect(
+        () => RequestMapper.fromMap(mapEmptyCreatedAt),
+        throwsA(isA<FormatException>()),
+      );
     });
   });
 }

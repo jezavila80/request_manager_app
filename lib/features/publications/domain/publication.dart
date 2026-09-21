@@ -1,3 +1,4 @@
+import '../../../../core/time/app_date_time.dart';
 import 'publication_status.dart';
 import 'tri_state_value.dart';
 
@@ -29,6 +30,8 @@ class Publication {
 
   /// Factory constructor to create and validate a standard Publication.
   /// Trims text fields and maps empty strings to null (except name which throws an error).
+  ///
+  /// Timestamps [createdAt] and [updatedAt] are required and normalized to UTC.
   factory Publication({
     int? id,
     String? code,
@@ -38,8 +41,8 @@ class Publication {
     TriStateValue<String> size = const TriStateValue.sinDefinir(),
     TriStateValue<String> version = const TriStateValue.sinDefinir(),
     bool isActive = true,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
   }) {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -56,7 +59,8 @@ class Publication {
             ? null
             : description.trim();
 
-    final now = DateTime.now();
+    final effectiveCreatedAt = AppDateTime.normalizeUtc(createdAt);
+    final effectiveUpdatedAt = AppDateTime.normalizeUtc(updatedAt);
 
     return Publication._(
       id: id,
@@ -67,19 +71,21 @@ class Publication {
       size: size,
       version: version,
       isActive: isActive,
-      createdAt: createdAt ?? now,
-      updatedAt: updatedAt ?? now,
+      createdAt: effectiveCreatedAt,
+      updatedAt: effectiveUpdatedAt,
     );
   }
 
   /// Factory constructor specifically for quick drafts created from requests.
   /// Requires description to be present (non-empty).
+  ///
+  /// Timestamps [createdAt] and [updatedAt] are required and normalized to UTC.
   factory Publication.quickDraft({
     required String name,
     required String description,
     int? id,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
   }) {
     final trimmedDescription = description.trim();
     if (trimmedDescription.isEmpty) {
@@ -114,6 +120,7 @@ class Publication {
 
   /// Returns a new Publication with the updated fields, preserving other values.
   /// Uses functions for nullable parameters to allow explicitly setting them to null.
+  /// Preserves [createdAt] and [updatedAt] unless explicitly specified.
   Publication copyWith({
     int? id,
     String? Function()? code,
@@ -136,7 +143,7 @@ class Publication {
       version: version ?? this.version,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 

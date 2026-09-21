@@ -79,7 +79,6 @@ class RequestLocalDataSourceImpl implements RequestLocalDataSource {
         return request.copyWith(
           id: requestId,
           items: persistedItems,
-          updatedAt: request.updatedAt,
         );
       });
     } on DatabaseException catch (e) {
@@ -136,7 +135,7 @@ class RequestLocalDataSourceImpl implements RequestLocalDataSource {
           final reqId = reqRow[DatabaseConstants.columnId] as int;
           final items = itemsByRequestId[reqId] ?? <RequestItem>[];
           final req = RequestMapper.fromMap(reqRow, items: items);
-          requests.add(req.copyWith(items: items, updatedAt: req.updatedAt));
+          requests.add(req);
         }
 
         return requests;
@@ -188,8 +187,7 @@ class RequestLocalDataSourceImpl implements RequestLocalDataSource {
         final items = itemRows.map(RequestItemMapper.fromMap).toList();
         await _verifyPublicationsExist(txn, items.map((i) => i.publicationId));
 
-        final req = RequestMapper.fromMap(reqRows.first, items: items);
-        return req.copyWith(items: items, updatedAt: req.updatedAt);
+        return RequestMapper.fromMap(reqRows.first, items: items);
       });
     } on DatabaseException catch (e) {
       throw RequestPersistenceException(

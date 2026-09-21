@@ -1,8 +1,8 @@
+import '../../../helpers/test_publication_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
 import 'package:request_manager_app/features/publications/data/publication_repository_impl.dart';
-import 'package:request_manager_app/features/publications/domain/publication.dart';
 import 'package:request_manager_app/features/publications/domain/publication_exceptions.dart';
 import 'package:request_manager_app/features/publications/domain/publication_status.dart';
 import 'package:request_manager_app/features/publications/domain/tri_state_value.dart';
@@ -28,7 +28,7 @@ void main() {
     test(
         'Success create() of a Draft publication assigns ID and maintains status',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Biblia Draft',
         code: null,
       );
@@ -44,7 +44,7 @@ void main() {
     test(
         'Success create() of a Complete publication assigns ID and maintains status',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Biblia Completa',
         code: 'RBI-8',
         type: 'Libro',
@@ -63,8 +63,8 @@ void main() {
 
     test('Duplicate code propagates DuplicatePublicationCodeException',
         () async {
-      final pub1 = Publication(name: 'Biblia 1', code: 'RBI-8');
-      final pub2 = Publication(name: 'Biblia 2', code: 'RBI-8');
+      final pub1 = createTestPublication(name: 'Biblia 1', code: 'RBI-8');
+      final pub2 = createTestPublication(name: 'Biblia 2', code: 'RBI-8');
 
       await repository.create(pub1);
 
@@ -76,7 +76,7 @@ void main() {
 
     test('Reject create() when publication already has a non-null ID',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         id: 123,
         name: 'Biblia Existente',
       );
@@ -92,7 +92,7 @@ void main() {
       // Close the database to trigger an unexpected sqlite exception
       await AppDatabase.instance.close();
 
-      final publication = Publication(name: 'Biblia sin DB');
+      final publication = createTestPublication(name: 'Biblia sin DB');
 
       expect(
         () => repository.create(publication),
@@ -133,7 +133,7 @@ void main() {
 
     test('Integration: create -> getById -> retrieves the same publication',
         () async {
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Integration Test Publication',
         code: 'INT-99',
         type: 'Folleto',
@@ -160,9 +160,9 @@ void main() {
 
     test('Integration: create multiple -> getAll -> returns sorted list',
         () async {
-      final pubA = Publication(name: 'Zeta');
-      final pubB = Publication(name: 'alfa');
-      final pubC = Publication(name: 'Beta');
+      final pubA = createTestPublication(name: 'Zeta');
+      final pubB = createTestPublication(name: 'alfa');
+      final pubC = createTestPublication(name: 'Beta');
 
       final createdA = await repository.create(pubA);
       final createdB = await repository.create(pubB);
@@ -194,7 +194,7 @@ void main() {
       );
       final diskRepo = PublicationRepositoryImpl();
 
-      final publication = Publication(
+      final publication = createTestPublication(
         name: 'Persistent Across Reopen',
         code: 'PAR-1',
         type: 'Libro',
@@ -235,9 +235,9 @@ void main() {
     group('searchByName Repository Tests', () {
       test('Successful searchByName returns correct list of publications',
           () async {
-        final pub1 = Publication(name: 'Biblia Reina Valera');
-        final pub2 = Publication(name: 'Biblia Letra Grande');
-        final pub3 = Publication(name: 'Otro Libro');
+        final pub1 = createTestPublication(name: 'Biblia Reina Valera');
+        final pub2 = createTestPublication(name: 'Biblia Letra Grande');
+        final pub3 = createTestPublication(name: 'Otro Libro');
 
         await repository.create(pub1);
         await repository.create(pub2);
@@ -276,9 +276,9 @@ void main() {
     group('searchByCode Repository Tests', () {
       test('Successful searchByCode returns correct list of publications',
           () async {
-        final pub1 = Publication(name: 'Biblia 1', code: 'RBI-12');
-        final pub2 = Publication(name: 'Biblia 2', code: 'RBI-8');
-        final pub3 = Publication(name: 'Otro Libro', code: 'W26-1');
+        final pub1 = createTestPublication(name: 'Biblia 1', code: 'RBI-12');
+        final pub2 = createTestPublication(name: 'Biblia 2', code: 'RBI-8');
+        final pub3 = createTestPublication(name: 'Otro Libro', code: 'W26-1');
 
         await repository.create(pub1);
         await repository.create(pub2);
@@ -303,10 +303,10 @@ void main() {
       });
 
       test('Search excludes inactive publications', () async {
-        final active =
-            Publication(name: 'Activo', code: 'RBI-8', isActive: true);
-        final inactive =
-            Publication(name: 'Inactivo', code: 'RBI-9', isActive: false);
+        final active = createTestPublication(
+            name: 'Activo', code: 'RBI-8', isActive: true);
+        final inactive = createTestPublication(
+            name: 'Inactivo', code: 'RBI-9', isActive: false);
 
         await repository.create(active);
         await repository.create(inactive);
@@ -318,8 +318,10 @@ void main() {
 
       test('Search includes Draft with code but excludes Draft without code',
           () async {
-        final draftWithCode = Publication(name: 'Draft con', code: 'RBI-TEMP');
-        final draftWithoutCode = Publication(name: 'Draft sin', code: null);
+        final draftWithCode =
+            createTestPublication(name: 'Draft con', code: 'RBI-TEMP');
+        final draftWithoutCode =
+            createTestPublication(name: 'Draft sin', code: null);
 
         await repository.create(draftWithCode);
         await repository.create(draftWithoutCode);
@@ -345,10 +347,10 @@ void main() {
       test(
           'findByExactCode returns exact active or inactive publication case-insensitive',
           () async {
-        final active =
-            Publication(name: 'Biblia 1', code: 'RBI-8', isActive: true);
-        final inactive =
-            Publication(name: 'Biblia 2', code: 'RBI-9', isActive: false);
+        final active = createTestPublication(
+            name: 'Biblia 1', code: 'RBI-8', isActive: true);
+        final inactive = createTestPublication(
+            name: 'Biblia 2', code: 'RBI-9', isActive: false);
         await repository.create(active);
         await repository.create(inactive);
 
@@ -373,9 +375,9 @@ void main() {
       });
 
       test('findActiveByName returns exact matches case-insensitive', () async {
-        final p1 = Publication(
+        final p1 = createTestPublication(
             name: 'Biblia Letra Grande', code: 'P1', isActive: true);
-        final p2 = Publication(
+        final p2 = createTestPublication(
             name: 'biblia letra grande', code: 'P2', isActive: true);
 
         await repository.create(p1);

@@ -1,3 +1,4 @@
+import '../../../../helpers/test_publication_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/features/publications/domain/publication.dart';
 import 'package:request_manager_app/features/publications/domain/publication_repository.dart';
@@ -58,8 +59,8 @@ void main() {
   group('PublicationCatalogSearchService Tests', () {
     test('Empty or whitespace query returns getActivePublications()', () async {
       repository.activePublications = [
-        Publication(id: 1, name: 'Biblia 1', isActive: true),
-        Publication(id: 2, name: 'Biblia 2', isActive: true),
+        createTestPublication(id: 1, name: 'Biblia 1', isActive: true),
+        createTestPublication(id: 2, name: 'Biblia 2', isActive: true),
       ];
 
       final res1 = await service.search('');
@@ -73,10 +74,14 @@ void main() {
     });
 
     test('Code matches are prioritized over name matches', () async {
-      final codePub1 = Publication(id: 10, code: 'RBI-1', name: 'Alpha');
-      final codePub2 = Publication(id: 20, code: 'RBI-2', name: 'Beta');
-      final namePub1 = Publication(id: 30, code: 'XYZ-1', name: 'RBI Gamma');
-      final namePub2 = Publication(id: 40, code: 'XYZ-2', name: 'RBI Delta');
+      final codePub1 =
+          createTestPublication(id: 10, code: 'RBI-1', name: 'Alpha');
+      final codePub2 =
+          createTestPublication(id: 20, code: 'RBI-2', name: 'Beta');
+      final namePub1 =
+          createTestPublication(id: 30, code: 'XYZ-1', name: 'RBI Gamma');
+      final namePub2 =
+          createTestPublication(id: 40, code: 'XYZ-2', name: 'RBI Delta');
 
       repository.codeSearchResults = [codePub1, codePub2];
       repository.nameSearchResults = [namePub1, namePub2];
@@ -92,9 +97,12 @@ void main() {
 
     test('Deduplicates publications by Publication.id preserving code priority',
         () async {
-      final pubA = Publication(id: 1, code: 'RBI-8', name: 'Biblia RBI');
-      final pubB = Publication(id: 2, code: 'RBI-9', name: 'Biblia 2');
-      final pubC = Publication(id: 3, code: 'ABC-1', name: 'Biblia RBI 3');
+      final pubA =
+          createTestPublication(id: 1, code: 'RBI-8', name: 'Biblia RBI');
+      final pubB =
+          createTestPublication(id: 2, code: 'RBI-9', name: 'Biblia 2');
+      final pubC =
+          createTestPublication(id: 3, code: 'ABC-1', name: 'Biblia RBI 3');
 
       // pubB and pubA are present in name results too
       repository.codeSearchResults = [pubA, pubB];
@@ -111,11 +119,13 @@ void main() {
     test('Limits final combined results to maximum of 20', () async {
       final codeList = List.generate(
         15,
-        (i) => Publication(id: i + 1, code: 'CODE-$i', name: 'Pub $i'),
+        (i) =>
+            createTestPublication(id: i + 1, code: 'CODE-$i', name: 'Pub $i'),
       );
       final nameList = List.generate(
         15,
-        (i) => Publication(id: i + 100, code: 'NAME-$i', name: 'Pub $i'),
+        (i) =>
+            createTestPublication(id: i + 100, code: 'NAME-$i', name: 'Pub $i'),
       );
 
       repository.codeSearchResults = codeList;

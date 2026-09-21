@@ -1,12 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
 import 'package:request_manager_app/core/database/database_constants.dart';
-import 'package:request_manager_app/features/publications/domain/publication.dart';
 import 'package:request_manager_app/features/requests/data/datasources/request_local_data_source.dart';
 import 'package:request_manager_app/features/requests/domain/request.dart';
 import 'package:request_manager_app/features/requests/domain/request_exceptions.dart';
 import 'package:request_manager_app/features/requests/domain/request_fulfillment_status.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
+import 'package:request_manager_app/core/time/app_date_time.dart';
+import '../../../helpers/test_publication_factory.dart';
+import '../../../helpers/test_request_factory.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -35,7 +37,7 @@ void main() {
       String name = 'Publicación de prueba',
       bool isActive = true,
     }) async {
-      final nowStr = DateTime.now().toIso8601String();
+      final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
       return await db.insert(DatabaseConstants.tablePublications, {
         DatabaseConstants.columnCode: code,
         DatabaseConstants.columnName: name,
@@ -48,7 +50,7 @@ void main() {
     test('create successfully persists Request with 1 item and returns IDs',
         () async {
       final pubId = await insertSamplePublication();
-      final now = DateTime.now();
+      final now = DateTime.utc(2026, 9, 1, 10, 0);
 
       final originalRequest = Request(
         requestedBy: 'Juan Pérez',
@@ -103,7 +105,7 @@ void main() {
       final pub2 = await insertSamplePublication(code: 'PUB-2', name: 'Pub B');
       final pub3 = await insertSamplePublication(code: 'PUB-3', name: 'Pub C');
 
-      final originalRequest = Request(
+      final originalRequest = createTestRequest(
         requestedBy: 'María',
         items: [
           RequestItem(publicationId: pub1, quantityRequested: 2),
@@ -140,7 +142,7 @@ void main() {
       final pubId = await insertSamplePublication();
       final originalItem =
           RequestItem(publicationId: pubId, quantityRequested: 3);
-      final originalRequest = Request(
+      final originalRequest = createTestRequest(
         requestedBy: 'Carlos',
         items: [originalItem],
       );
@@ -158,7 +160,7 @@ void main() {
 
     test('create rejects Request with pre-existing id (id != null)', () async {
       final pubId = await insertSamplePublication();
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         id: 99,
         requestedBy: 'Carlos',
         items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
@@ -178,7 +180,7 @@ void main() {
         'create rejects RequestItem with pre-existing item id (item.id != null)',
         () async {
       final pubId = await insertSamplePublication();
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         requestedBy: 'Carlos',
         items: [
           RequestItem(id: 50, publicationId: pubId, quantityRequested: 1),
@@ -196,7 +198,7 @@ void main() {
     });
 
     test('create rejects empty Request (isValidForOrder == false)', () async {
-      final emptyRequest = Request(
+      final emptyRequest = createTestRequest(
         requestedBy: 'Carlos',
         items: const [],
       );
@@ -216,7 +218,7 @@ void main() {
       final draftPubId =
           await insertSamplePublication(code: null, name: 'Borrador 1');
 
-      final request = Request(
+      final request = createTestRequest(
         requestedBy: 'Pedro',
         items: [
           RequestItem(publicationId: draftPubId, quantityRequested: 3),
@@ -233,7 +235,7 @@ void main() {
       final pub1 = await insertSamplePublication(code: 'P1', name: 'Pub 1');
       final pub2 = await insertSamplePublication(code: 'P2', name: 'Pub 2');
 
-      final request = Request(
+      final request = createTestRequest(
         requestedBy: 'Lucía',
         items: [
           RequestItem(
@@ -258,7 +260,7 @@ void main() {
 
     test('create preserves null notes', () async {
       final pubId = await insertSamplePublication();
-      final request = Request(
+      final request = createTestRequest(
         requestedBy: 'Sofía',
         notes: null,
         items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
@@ -276,12 +278,12 @@ void main() {
         () async {
       final pubId = await insertSamplePublication();
 
-      final reqA = await dataSource.create(Request(
+      final reqA = await dataSource.create(createTestRequest(
         requestedBy: 'User A',
         items: [RequestItem(publicationId: pubId, quantityRequested: 2)],
       ));
 
-      final reqB = await dataSource.create(Request(
+      final reqB = await dataSource.create(createTestRequest(
         requestedBy: 'User B',
         items: [RequestItem(publicationId: pubId, quantityRequested: 5)],
       ));
@@ -302,7 +304,7 @@ void main() {
         () async {
       final validPubId = await insertSamplePublication();
 
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         requestedBy: 'Gabriel',
         items: [
           RequestItem(publicationId: validPubId, quantityRequested: 2),
@@ -344,7 +346,7 @@ void main() {
 
         // 2. Insertar 3 publicaciones (A: Complete, B: Complete, C: Draft)
         final dbInstance = await AppDatabase.instance.database;
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
 
         final pubA =
             await dbInstance.insert(DatabaseConstants.tablePublications, {
@@ -373,7 +375,7 @@ void main() {
           DatabaseConstants.columnUpdatedAt: nowStr,
         });
 
-        final reqCreatedAt = DateTime.now().toUtc();
+        final reqCreatedAt = DateTime.utc(2026, 9, 1, 10, 0);
         final reqUpdatedAt = reqCreatedAt.add(const Duration(minutes: 5));
 
         final newRequest = Request(
@@ -498,7 +500,7 @@ void main() {
       final pub1 = await insertSamplePublication(code: 'PUB-1', name: 'Pub 1');
       final pub2 = await insertSamplePublication(code: 'PUB-2', name: 'Pub 2');
 
-      final validRequestA = Request(
+      final validRequestA = createTestRequest(
         requestedBy: 'Solicitud Preexistente A',
         notes: 'Datos confirmados previos',
         items: [
@@ -511,7 +513,7 @@ void main() {
       expect(persistedReqA.id, greaterThan(0));
 
       // 2. Construir Request B con Item 1 (válido), Item 2 (válido), Item 3 (inexistente FK = 999999)
-      final invalidRequestB = Request(
+      final invalidRequestB = createTestRequest(
         requestedBy: 'Solicitud Fallida B',
         notes: 'Intento con FK inválida al final',
         items: [
@@ -609,7 +611,7 @@ void main() {
           () async {
         final pubId =
             await insertSamplePublication(code: 'PUB-10', name: 'Libro A');
-        final now = DateTime.now();
+        final now = DateTime.utc(2026, 9, 16, 12, 0);
 
         final created = await dataSource.create(Request(
           requestedBy: 'Ana Gómez',
@@ -647,7 +649,7 @@ void main() {
         final p2 = await insertSamplePublication(code: 'P-2', name: 'B');
         final p3 = await insertSamplePublication(code: 'P-3', name: 'C');
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Marcos',
           items: [
             RequestItem(publicationId: p1, quantityRequested: 2),
@@ -671,9 +673,9 @@ void main() {
           'getAll retrieves multiple requests ordered by created_at DESC, id DESC',
           () async {
         final p = await insertSamplePublication();
-        final t1 = DateTime(2026, 1, 1, 10, 0);
-        final t2 = DateTime(2026, 1, 2, 10, 0);
-        final t3 = DateTime(2026, 1, 3, 10, 0);
+        final t1 = DateTime.utc(2026, 1, 1, 10, 0);
+        final t2 = DateTime.utc(2026, 1, 2, 10, 0);
+        final t3 = DateTime.utc(2026, 1, 3, 10, 0);
 
         final r1 = await dataSource.create(Request(
           requestedBy: 'Req 1',
@@ -706,7 +708,7 @@ void main() {
           'getAll uses id DESC as tiebreaker when requests have identical createdAt',
           () async {
         final p = await insertSamplePublication();
-        final sameTime = DateTime(2026, 5, 10, 12, 0);
+        final sameTime = DateTime.utc(2026, 5, 10, 12, 0);
 
         final r1 = await dataSource.create(Request(
           requestedBy: 'Req Same A',
@@ -734,7 +736,7 @@ void main() {
         final draftId =
             await insertSamplePublication(code: null, name: 'Borrador X');
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Laura',
           items: [RequestItem(publicationId: draftId, quantityRequested: 2)],
         ));
@@ -756,7 +758,7 @@ void main() {
           isActive: false,
         );
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Esteban',
           items: [RequestItem(publicationId: inactiveId, quantityRequested: 3)],
         ));
@@ -772,7 +774,7 @@ void main() {
       test(
           'getById reconstructs Request without items (items = [], isValidForOrder = false)',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
         final emptyHeaderId = await db.insert(DatabaseConstants.tableRequests, {
           DatabaseConstants.columnRequestedBy: 'Sin Renglones',
           DatabaseConstants.columnNotes: 'Solo cabecera',
@@ -803,7 +805,7 @@ void main() {
               RequestLocalDataSourceImpl(appDatabase: AppDatabase.instance);
           final dbInst = await AppDatabase.instance.database;
 
-          final nowStr = DateTime.now().toIso8601String();
+          final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
           final pubId =
               await dbInst.insert(DatabaseConstants.tablePublications, {
             DatabaseConstants.columnCode: 'PUB-REOPEN',
@@ -812,7 +814,7 @@ void main() {
             DatabaseConstants.columnUpdatedAt: nowStr,
           });
 
-          final reqCreated = DateTime.now().toUtc();
+          final reqCreated = DateTime.utc(2026, 9, 1, 10, 0);
           final reqUpdated = reqCreated.add(const Duration(minutes: 10));
 
           final created = await localDs.create(Request(
@@ -881,7 +883,7 @@ void main() {
 
       test('getById preserves null notes', () async {
         final p = await insertSamplePublication();
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Null Notes Test',
           notes: null,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
@@ -902,7 +904,7 @@ void main() {
         final p3 =
             await insertSamplePublication(code: 'Q3', name: 'Item Fulfilled');
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Quantity Test',
           items: [
             RequestItem(
@@ -931,7 +933,7 @@ void main() {
         final p1 = await insertSamplePublication(code: 'F1', name: 'Pub F1');
         final p2 = await insertSamplePublication(code: 'F2', name: 'Pub F2');
 
-        final pendingReq = await dataSource.create(Request(
+        final pendingReq = await dataSource.create(createTestRequest(
           requestedBy: 'Pending Tester',
           items: [
             RequestItem(
@@ -939,7 +941,7 @@ void main() {
           ],
         ));
 
-        final partialReq = await dataSource.create(Request(
+        final partialReq = await dataSource.create(createTestRequest(
           requestedBy: 'Partial Tester',
           items: [
             RequestItem(
@@ -949,7 +951,7 @@ void main() {
           ],
         ));
 
-        final fulfilledReq = await dataSource.create(Request(
+        final fulfilledReq = await dataSource.create(createTestRequest(
           requestedBy: 'Fulfilled Tester',
           items: [
             RequestItem(
@@ -977,7 +979,7 @@ void main() {
         final p1 = await insertSamplePublication(code: 'T1', name: 'T1');
         final p2 = await insertSamplePublication(code: 'T2', name: 'T2');
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Totals Tester',
           items: [
             RequestItem(
@@ -1002,7 +1004,7 @@ void main() {
             await insertSamplePublication(code: 'FULL-1', name: 'Complete Pub');
         final p2 = await insertSamplePublication(code: null, name: 'Draft Pub');
 
-        final created = await dataSource.create(Request(
+        final created = await dataSource.create(createTestRequest(
           requestedBy: 'Define Tester',
           items: [
             RequestItem(publicationId: p1, quantityRequested: 1),
@@ -1013,13 +1015,13 @@ void main() {
         final retrieved = await dataSource.getById(created.id!);
         expect(retrieved, isNotNull);
 
-        final completePub = Publication(
+        final completePub = createTestPublication(
           id: p1,
           code: 'FULL-1',
           name: 'Complete Pub',
           type: 'Libro',
         );
-        final draftPub = Publication(
+        final draftPub = createTestPublication(
           id: p2,
           code: null,
           name: 'Draft Pub',
@@ -1029,7 +1031,7 @@ void main() {
         expect(retrieved!.isFullyDefined([completePub, draftPub]), isFalse);
 
         // If all publications were complete:
-        final completePub2 = Publication(
+        final completePub2 = createTestPublication(
           id: p2,
           code: 'FULL-2',
           name: 'Now Complete Pub',
@@ -1042,7 +1044,7 @@ void main() {
           () async {
         final p = await insertSamplePublication(
             code: 'COMP-1', name: 'Comparison Pub');
-        final original = await dataSource.create(Request(
+        final original = await dataSource.create(createTestRequest(
           requestedBy: 'Exact Match User',
           notes: 'Comparación idéntica',
           items: [
@@ -1071,15 +1073,15 @@ void main() {
 
       test('getAll returns all requests after multiple creates', () async {
         final p = await insertSamplePublication();
-        await dataSource.create(Request(
+        await dataSource.create(createTestRequest(
           requestedBy: 'Batch 1',
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
-        await dataSource.create(Request(
+        await dataSource.create(createTestRequest(
           requestedBy: 'Batch 2',
           items: [RequestItem(publicationId: p, quantityRequested: 2)],
         ));
-        await dataSource.create(Request(
+        await dataSource.create(createTestRequest(
           requestedBy: 'Batch 3',
           items: [RequestItem(publicationId: p, quantityRequested: 3)],
         ));
@@ -1092,7 +1094,7 @@ void main() {
           'Corrupted FK: missing referenced publication throws RequestPersistenceException',
           () async {
         final validPubId = await insertSamplePublication();
-        final validRequest = await dataSource.create(Request(
+        final validRequest = await dataSource.create(createTestRequest(
           requestedBy: 'Corrupted FK Test',
           items: [RequestItem(publicationId: validPubId, quantityRequested: 2)],
         ));

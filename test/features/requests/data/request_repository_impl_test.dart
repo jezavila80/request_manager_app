@@ -5,6 +5,8 @@ import 'package:request_manager_app/features/requests/domain/request.dart';
 import 'package:request_manager_app/features/requests/domain/request_exceptions.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
 
+import '../../../helpers/test_request_factory.dart';
+
 class FakeRequestLocalDataSource implements RequestLocalDataSource {
   Request? passedRequest;
   Request? responseToReturn;
@@ -49,7 +51,7 @@ void main() {
     });
 
     test('create delegates valid Request to RequestLocalDataSource', () async {
-      final request = Request(
+      final request = createTestRequest(
         requestedBy: 'Juan',
         items: [RequestItem(publicationId: 1, quantityRequested: 2)],
       );
@@ -59,11 +61,13 @@ void main() {
       expect(fakeDataSource.passedRequest, equals(request));
       expect(result.id, equals(10));
       expect(result.items.first.id, equals(100));
+      expect(result.createdAt, equals(request.createdAt));
+      expect(result.updatedAt, equals(request.updatedAt));
     });
 
     test('create rejects Request without items (isValidForOrder == false)',
         () async {
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         requestedBy: 'Juan',
         items: const [],
       );
@@ -76,7 +80,7 @@ void main() {
     });
 
     test('create rejects Request with pre-existing id', () async {
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         id: 5,
         requestedBy: 'Juan',
         items: [RequestItem(publicationId: 1, quantityRequested: 2)],
@@ -90,7 +94,7 @@ void main() {
     });
 
     test('create rejects RequestItem with pre-existing id', () async {
-      final invalidRequest = Request(
+      final invalidRequest = createTestRequest(
         requestedBy: 'Juan',
         items: [RequestItem(id: 50, publicationId: 1, quantityRequested: 2)],
       );
@@ -105,7 +109,7 @@ void main() {
     test('getAll delegates to RequestLocalDataSource and returns list',
         () async {
       final sampleRequests = [
-        Request(
+        createTestRequest(
           id: 1,
           requestedBy: 'Carlos',
           items: [RequestItem(id: 1, publicationId: 10, quantityRequested: 1)],
@@ -120,7 +124,7 @@ void main() {
     });
 
     test('getById delegates valid id to RequestLocalDataSource', () async {
-      final sampleRequest = Request(
+      final sampleRequest = createTestRequest(
         id: 7,
         requestedBy: 'Elena',
         items: [RequestItem(id: 2, publicationId: 10, quantityRequested: 3)],

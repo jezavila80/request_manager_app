@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import '../../../../core/time/app_date_time.dart';
 import '../../publications/domain/publication.dart';
 import '../../publications/domain/publication_status.dart';
 import 'request_exceptions.dart';
@@ -30,13 +31,15 @@ class Request {
   /// - [requestedBy] cannot be empty or contain only whitespace.
   /// - [items] cannot contain duplicate [publicationId] references.
   /// - [updatedAt] cannot be earlier than [createdAt].
+  ///
+  /// Timestamps [createdAt] and [updatedAt] are required and normalized to UTC.
   factory Request({
     int? id,
     required String requestedBy,
     List<RequestItem> items = const [],
     String? notes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
   }) {
     if (id != null && id <= 0) {
       throw ArgumentError('El ID del pedido debe ser mayor a cero.');
@@ -59,9 +62,8 @@ class Request {
     final normalizedNotes =
         (notes == null || notes.trim().isEmpty) ? null : notes.trim();
 
-    final now = DateTime.now();
-    final effectiveCreatedAt = createdAt ?? now;
-    final effectiveUpdatedAt = updatedAt ?? effectiveCreatedAt;
+    final effectiveCreatedAt = AppDateTime.normalizeUtc(createdAt);
+    final effectiveUpdatedAt = AppDateTime.normalizeUtc(updatedAt);
 
     if (effectiveUpdatedAt.isBefore(effectiveCreatedAt)) {
       throw ArgumentError(
@@ -143,7 +145,7 @@ class Request {
   /// Adds a new [RequestItem] to the request.
   ///
   /// Rejects addition if an item with the same [publicationId] already exists in the request.
-  Request addItem(RequestItem item, {DateTime? updatedAt}) {
+  Request addItem(RequestItem item, {required DateTime updatedAt}) {
     if (_items
         .any((existing) => existing.publicationId == item.publicationId)) {
       throw DuplicatePublicationInRequestException(item.publicationId);
@@ -152,14 +154,14 @@ class Request {
     final newItems = List<RequestItem>.from(_items)..add(item);
     return copyWith(
       items: newItems,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: AppDateTime.normalizeUtc(updatedAt),
     );
   }
 
   /// Removes an item from the request by its [publicationId].
   ///
   /// Throws [RequestItemNotFoundException] if no item with the given [publicationId] exists.
-  Request removeItem(int publicationId, {DateTime? updatedAt}) {
+  Request removeItem(int publicationId, {required DateTime updatedAt}) {
     final index =
         _items.indexWhere((item) => item.publicationId == publicationId);
     if (index == -1) {
@@ -169,7 +171,7 @@ class Request {
     final newItems = List<RequestItem>.from(_items)..removeAt(index);
     return copyWith(
       items: newItems,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: AppDateTime.normalizeUtc(updatedAt),
     );
   }
 
@@ -181,7 +183,7 @@ class Request {
   Request replaceItemPublication({
     required int oldPublicationId,
     required int newPublicationId,
-    DateTime? updatedAt,
+    required DateTime updatedAt,
   }) {
     final index =
         _items.indexWhere((item) => item.publicationId == oldPublicationId);
@@ -207,7 +209,7 @@ class Request {
 
     return copyWith(
       items: newItems,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: AppDateTime.normalizeUtc(updatedAt),
     );
   }
 
@@ -215,7 +217,7 @@ class Request {
   Request updateItemQuantityRequested(
     int publicationId,
     int newQuantityRequested, {
-    DateTime? updatedAt,
+    required DateTime updatedAt,
   }) {
     final index =
         _items.indexWhere((item) => item.publicationId == publicationId);
@@ -230,7 +232,7 @@ class Request {
 
     return copyWith(
       items: newItems,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: AppDateTime.normalizeUtc(updatedAt),
     );
   }
 
@@ -238,7 +240,7 @@ class Request {
   Request updateItemQuantityFulfilled(
     int publicationId,
     int newQuantityFulfilled, {
-    DateTime? updatedAt,
+    required DateTime updatedAt,
   }) {
     final index =
         _items.indexWhere((item) => item.publicationId == publicationId);
@@ -253,11 +255,12 @@ class Request {
 
     return copyWith(
       items: newItems,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: AppDateTime.normalizeUtc(updatedAt),
     );
   }
 
   /// Creates a copy of this [Request] with updated fields.
+  /// Preserves [createdAt] and [updatedAt] unless explicitly specified.
   Request copyWith({
     int? id,
     String? requestedBy,
@@ -272,7 +275,7 @@ class Request {
       items: items ?? _items,
       notes: notes != null ? notes() : this.notes,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 

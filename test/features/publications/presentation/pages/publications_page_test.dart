@@ -1,3 +1,4 @@
+import '../../../../helpers/test_publication_factory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/core/widgets/app_card.dart';
@@ -82,14 +83,14 @@ void main() {
         'Renders list of publications with code, type and status badges',
         (tester) async {
       repository.mockActivePublications = [
-        Publication(
+        createTestPublication(
           id: 1,
           name: 'Biblia de Referencia',
           code: 'RBI-8',
           type: 'Libro',
           isActive: true,
         ),
-        Publication(
+        createTestPublication(
           id: 2,
           name: 'Folleto Informativo',
           code: null,
@@ -121,7 +122,8 @@ void main() {
     testWidgets('Renders search no results message when query has no matches',
         (tester) async {
       repository.mockActivePublications = [
-        Publication(id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
+        createTestPublication(
+            id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
       ];
 
       await tester.pumpWidget(buildTestWidget());
@@ -149,7 +151,8 @@ void main() {
       // Fix error and retry
       repository.shouldThrow = false;
       repository.mockActivePublications = [
-        Publication(id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
+        createTestPublication(
+            id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
       ];
 
       await tester.tap(find.text('Reintentar'));
@@ -160,7 +163,7 @@ void main() {
 
     testWidgets('Tapping publication card opens PublicationDetailPage',
         (tester) async {
-      final pub = Publication(
+      final pub = createTestPublication(
         id: 1,
         name: 'Biblia de Referencia',
         code: 'RBI-8',
@@ -211,7 +214,8 @@ void main() {
         });
 
         repository.mockActivePublications = [
-          Publication(id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
+          createTestPublication(
+              id: 1, name: 'Biblia', code: 'RBI-8', isActive: true),
         ];
 
         await tester.pumpWidget(buildTestWidget());
@@ -279,7 +283,7 @@ void main() {
 
         repository.mockActivePublications = List.generate(
           10,
-          (i) => Publication(
+          (i) => createTestPublication(
             id: i + 1,
             name: 'Publicación $i',
             code: 'CODE-$i',

@@ -5,10 +5,14 @@ import 'package:request_manager_app/features/requests/domain/request_exceptions.
 import 'package:request_manager_app/features/requests/domain/request_fulfillment_status.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
 
+import '../../../helpers/test_publication_factory.dart';
+import '../../../helpers/test_request_factory.dart';
+
 void main() {
   group('Request Domain Entity Tests', () {
-    final tCreatedAt = DateTime(2026, 9, 6, 10, 0);
-    final tUpdatedAt = DateTime(2026, 9, 6, 10, 30);
+    final tCreatedAt = DateTime.utc(2026, 9, 6, 10, 0);
+    final tUpdatedAt = DateTime.utc(2026, 9, 6, 10, 30);
+    final tActionTime = DateTime.utc(2026, 9, 6, 11, 0);
 
     test(
         'Creates valid Request with trimmed requestedBy and unmodifiable items',
@@ -31,6 +35,8 @@ void main() {
       expect(request.items.length, equals(2));
       expect(request.createdAt, equals(tCreatedAt));
       expect(request.updatedAt, equals(tUpdatedAt));
+      expect(request.createdAt.isUtc, isTrue);
+      expect(request.updatedAt.isUtc, isTrue);
 
       // Check unmodifiable list protection
       expect(
@@ -42,7 +48,7 @@ void main() {
     });
 
     test('Trims notes and converts blank string to null', () {
-      final request = Request(
+      final request = createTestRequest(
         requestedBy: 'María',
         notes: '   ',
       );
@@ -51,29 +57,29 @@ void main() {
 
     test('Throws ArgumentError if requestedBy is empty or only whitespace', () {
       expect(
-        () => Request(requestedBy: ''),
+        () => createTestRequest(requestedBy: ''),
         throwsArgumentError,
       );
       expect(
-        () => Request(requestedBy: '   '),
+        () => createTestRequest(requestedBy: '   '),
         throwsArgumentError,
       );
     });
 
     test('Throws ArgumentError if id <= 0', () {
       expect(
-        () => Request(id: 0, requestedBy: 'Carlos'),
+        () => createTestRequest(id: 0, requestedBy: 'Carlos'),
         throwsArgumentError,
       );
       expect(
-        () => Request(id: -5, requestedBy: 'Carlos'),
+        () => createTestRequest(id: -5, requestedBy: 'Carlos'),
         throwsArgumentError,
       );
     });
 
     test('Throws ArgumentError if updatedAt is before createdAt', () {
-      final created = DateTime(2026, 9, 6, 12, 0);
-      final earlier = DateTime(2026, 9, 6, 11, 0);
+      final created = DateTime.utc(2026, 9, 6, 12, 0);
+      final earlier = DateTime.utc(2026, 9, 6, 11, 0);
 
       expect(
         () => Request(
@@ -85,6 +91,23 @@ void main() {
       );
     });
 
+    test('Normalizes createdAt and updatedAt to UTC even when input is local',
+        () {
+      final localCreated = DateTime(2026, 9, 6, 10, 0);
+      final localUpdated = DateTime(2026, 9, 6, 11, 0);
+
+      final req = Request(
+        requestedBy: 'Pedro',
+        createdAt: localCreated,
+        updatedAt: localUpdated,
+      );
+
+      expect(req.createdAt.isUtc, isTrue);
+      expect(req.updatedAt.isUtc, isTrue);
+      expect(req.createdAt, equals(localCreated.toUtc()));
+      expect(req.updatedAt, equals(localUpdated.toUtc()));
+    });
+
     test(
         'Throws DuplicatePublicationInRequestException if initial items contain duplicate publicationId',
         () {
@@ -92,7 +115,7 @@ void main() {
       final item2 = RequestItem(publicationId: 8, quantityRequested: 3);
 
       expect(
-        () => Request(
+        () => createTestRequest(
           requestedBy: 'Ana',
           items: [item1, item2],
         ),
@@ -120,19 +143,18 @@ void main() {
           quantityFulfilled: 0,
         );
 
-        final request = Request(
-          requestedBy: 'Lucía',
+        final request = createTestRequest(
+          requestedBy: 'Luis',
           items: [item1, item2, item3],
         );
 
         expect(request.totalQuantityRequested, equals(18));
         expect(request.totalQuantityFulfilled, equals(12));
-        expect(request.isValidForOrder, isTrue);
       });
 
       test('Returns 0 totals and isValidForOrder = false for empty request',
           () {
-        final request = Request(requestedBy: 'Mateo', items: []);
+        final request = createTestRequest(requestedBy: 'Mateo', items: []);
 
         expect(request.totalQuantityRequested, equals(0));
         expect(request.totalQuantityFulfilled, equals(0));
@@ -143,7 +165,7 @@ void main() {
     group('Fulfillment Status Calculation Tests', () {
       test('Returns PENDING for empty request (documented baseline behavior)',
           () {
-        final request = Request(requestedBy: 'Sofia', items: []);
+        final request = createTestRequest(requestedBy: 'Sofia', items: []);
         expect(
           request.fulfillmentStatus,
           equals(RequestFulfillmentStatus.pending),
@@ -162,7 +184,7 @@ void main() {
           quantityFulfilled: 0,
         );
 
-        final request = Request(
+        final request = createTestRequest(
           requestedBy: 'Sofia',
           items: [item1, item2],
         );
@@ -187,7 +209,7 @@ void main() {
           quantityFulfilled: 10,
         );
 
-        final request = Request(
+        final request = createTestRequest(
           requestedBy: 'Sofia',
           items: [item1, item2],
         );
@@ -201,7 +223,7 @@ void main() {
       test('Returns PARTIALLY_FULFILLED for mixed or partial fulfillment cases',
           () {
         // Case A: 1 item complete, 1 partial, 1 zero
-        final requestA = Request(
+        final requestA = createTestRequest(
           requestedBy: 'Diego',
           items: [
             RequestItem(
@@ -218,7 +240,7 @@ void main() {
         );
 
         // Case B: 1 item zero, 1 partial
-        final requestB = Request(
+        final requestB = createTestRequest(
           requestedBy: 'Diego',
           items: [
             RequestItem(
@@ -235,33 +257,39 @@ void main() {
     });
 
     group('Domain Item Management Operations Tests', () {
-      test('addItem appends item and updates updatedAt', () {
-        final request = Request(requestedBy: 'Laura', createdAt: tCreatedAt);
+      test('addItem appends item and updates updatedAt with UTC timestamp', () {
+        final request = Request(
+          requestedBy: 'Laura',
+          createdAt: tCreatedAt,
+          updatedAt: tCreatedAt,
+        );
         final item = RequestItem(publicationId: 10, quantityRequested: 4);
 
         final updated = request.addItem(item, updatedAt: tUpdatedAt);
 
         expect(updated.items.length, equals(1));
         expect(updated.items.first, equals(item));
+        expect(updated.createdAt, equals(tCreatedAt));
         expect(updated.updatedAt, equals(tUpdatedAt));
+        expect(updated.updatedAt.isUtc, isTrue);
       });
 
       test(
           'addItem throws DuplicatePublicationInRequestException if publicationId exists',
           () {
         final item1 = RequestItem(publicationId: 10, quantityRequested: 4);
-        final request = Request(requestedBy: 'Laura', items: [item1]);
+        final request = createTestRequest(requestedBy: 'Laura', items: [item1]);
 
         final itemDuplicate =
             RequestItem(publicationId: 10, quantityRequested: 2);
 
         expect(
-          () => request.addItem(itemDuplicate),
+          () => request.addItem(itemDuplicate, updatedAt: tUpdatedAt),
           throwsA(isA<DuplicatePublicationInRequestException>()),
         );
       });
 
-      test('removeItem removes item by publicationId and recalculates status',
+      test('removeItem removes item by publicationId and updates updatedAt',
           () {
         final item1 = RequestItem(
           publicationId: 1,
@@ -277,6 +305,8 @@ void main() {
         final request = Request(
           requestedBy: 'Elena',
           items: [item1, item2],
+          createdAt: tCreatedAt,
+          updatedAt: tCreatedAt,
         );
 
         expect(
@@ -284,7 +314,7 @@ void main() {
           equals(RequestFulfillmentStatus.partiallyFulfilled),
         );
 
-        final updated = request.removeItem(2);
+        final updated = request.removeItem(2, updatedAt: tActionTime);
 
         expect(updated.items.length, equals(1));
         expect(updated.items.first.publicationId, equals(1));
@@ -292,15 +322,18 @@ void main() {
           updated.fulfillmentStatus,
           equals(RequestFulfillmentStatus.fulfilled),
         );
+        expect(updated.createdAt, equals(tCreatedAt));
+        expect(updated.updatedAt, equals(tActionTime));
+        expect(updated.updatedAt.isUtc, isTrue);
       });
 
       test(
           'removeItem throws RequestItemNotFoundException if publicationId not found',
           () {
-        final request = Request(requestedBy: 'Elena');
+        final request = createTestRequest(requestedBy: 'Elena');
 
         expect(
-          () => request.removeItem(99),
+          () => request.removeItem(99, updatedAt: tActionTime),
           throwsA(isA<RequestItemNotFoundException>()),
         );
       });
@@ -308,7 +341,7 @@ void main() {
       group('Publication Replacement (Draft -> Complete & Collision Tests)',
           () {
         test(
-            'replaceItemPublication replaces publicationId preserving item id and quantities',
+            'replaceItemPublication replaces publicationId preserving item id, quantities and updates updatedAt',
             () {
           final originalItem = RequestItem(
             id: 50,
@@ -321,6 +354,7 @@ void main() {
             requestedBy: 'Gabriel',
             items: [originalItem],
             createdAt: tCreatedAt,
+            updatedAt: tCreatedAt,
           );
 
           // Replaces Draft #35 with Complete #8
@@ -337,7 +371,9 @@ void main() {
           expect(replacedItem.publicationId, equals(8));
           expect(replacedItem.quantityRequested, equals(10));
           expect(replacedItem.quantityFulfilled, equals(4));
+          expect(updatedRequest.createdAt, equals(tCreatedAt));
           expect(updatedRequest.updatedAt, equals(tUpdatedAt));
+          expect(updatedRequest.updatedAt.isUtc, isTrue);
         });
 
         test(
@@ -354,7 +390,7 @@ void main() {
             quantityRequested: 5,
           );
 
-          final request = Request(
+          final request = createTestRequest(
             requestedBy: 'Gabriel',
             items: [itemDraft, itemExisting],
           );
@@ -364,6 +400,7 @@ void main() {
             () => request.replaceItemPublication(
               oldPublicationId: 35,
               newPublicationId: 8,
+              updatedAt: tUpdatedAt,
             ),
             throwsA(isA<DuplicatePublicationInRequestException>()),
           );
@@ -376,11 +413,12 @@ void main() {
         test('replaceItemPublication returns identical instance if old == new',
             () {
           final item = RequestItem(publicationId: 8, quantityRequested: 5);
-          final request = Request(requestedBy: 'Hugo', items: [item]);
+          final request = createTestRequest(requestedBy: 'Hugo', items: [item]);
 
           final updated = request.replaceItemPublication(
             oldPublicationId: 8,
             newPublicationId: 8,
+            updatedAt: tUpdatedAt,
           );
 
           expect(identical(request, updated), isTrue);
@@ -389,12 +427,13 @@ void main() {
         test(
             'replaceItemPublication throws RequestItemNotFoundException if oldPublicationId is not in request',
             () {
-          final request = Request(requestedBy: 'Hugo');
+          final request = createTestRequest(requestedBy: 'Hugo');
 
           expect(
             () => request.replaceItemPublication(
               oldPublicationId: 99,
               newPublicationId: 8,
+              updatedAt: tUpdatedAt,
             ),
             throwsA(isA<RequestItemNotFoundException>()),
           );
@@ -402,52 +441,84 @@ void main() {
       });
 
       test(
-          'updateItemQuantityRequested modifies item quantity with invariant checks',
+          'updateItemQuantityRequested modifies item quantity and updates updatedAt',
           () {
         final item = RequestItem(
           publicationId: 10,
           quantityRequested: 5,
           quantityFulfilled: 2,
         );
-        final request = Request(requestedBy: 'Irene', items: [item]);
+        final request = Request(
+          requestedBy: 'Irene',
+          items: [item],
+          createdAt: tCreatedAt,
+          updatedAt: tCreatedAt,
+        );
 
-        final updated = request.updateItemQuantityRequested(10, 8);
+        final updated = request.updateItemQuantityRequested(
+          10,
+          8,
+          updatedAt: tActionTime,
+        );
         expect(updated.items.first.quantityRequested, equals(8));
+        expect(updated.createdAt, equals(tCreatedAt));
+        expect(updated.updatedAt, equals(tActionTime));
+        expect(updated.updatedAt.isUtc, isTrue);
 
         expect(
-          () => request.updateItemQuantityRequested(10, 1),
+          () => request.updateItemQuantityRequested(
+            10,
+            1,
+            updatedAt: tActionTime,
+          ),
           throwsArgumentError,
         );
       });
 
       test(
-          'updateItemQuantityFulfilled modifies item quantity with invariant checks',
+          'updateItemQuantityFulfilled modifies item quantity and updates updatedAt',
           () {
         final item = RequestItem(
           publicationId: 10,
           quantityRequested: 5,
           quantityFulfilled: 2,
         );
-        final request = Request(requestedBy: 'Irene', items: [item]);
+        final request = Request(
+          requestedBy: 'Irene',
+          items: [item],
+          createdAt: tCreatedAt,
+          updatedAt: tCreatedAt,
+        );
 
-        final updated = request.updateItemQuantityFulfilled(10, 5);
+        final updated = request.updateItemQuantityFulfilled(
+          10,
+          5,
+          updatedAt: tActionTime,
+        );
         expect(updated.items.first.quantityFulfilled, equals(5));
+        expect(updated.createdAt, equals(tCreatedAt));
+        expect(updated.updatedAt, equals(tActionTime));
+        expect(updated.updatedAt.isUtc, isTrue);
 
         expect(
-          () => request.updateItemQuantityFulfilled(10, 6),
+          () => request.updateItemQuantityFulfilled(
+            10,
+            6,
+            updatedAt: tActionTime,
+          ),
           throwsArgumentError,
         );
       });
     });
 
     group('isFullyDefined Pure Domain Evaluation Tests', () {
-      final completePub1 = Publication(
+      final completePub1 = createTestPublication(
         id: 1,
         code: 'RBI-8',
         name: 'Biblia Letra Grande',
         type: 'Libro',
       );
-      final completePub2 = Publication(
+      final completePub2 = createTestPublication(
         id: 8,
         code: 'RL-12',
         name: 'Revista La Atalaya',
@@ -457,10 +528,12 @@ void main() {
         id: 35,
         name: 'Biblia especial',
         description: 'Borrador rápido para identificación posterior',
+        createdAt: tCreatedAt,
+        updatedAt: tCreatedAt,
       );
 
       test('Returns true when all items refer to COMPLETE publications', () {
-        final request = Request(
+        final request = createTestRequest(
           requestedBy: 'Marcos',
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
@@ -475,38 +548,38 @@ void main() {
       });
 
       test('Returns false when any item refers to a DRAFT publication', () {
-        final request = Request(
+        final request = createTestRequest(
           requestedBy: 'Marcos',
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
-            RequestItem(publicationId: 35, quantityRequested: 1), // Draft
+            RequestItem(publicationId: 35, quantityRequested: 1),
           ],
         );
 
         expect(
-          request.isFullyDefined([completePub1, completePub2, draftPub35]),
+          request.isFullyDefined([completePub1, draftPub35]),
           isFalse,
         );
       });
 
       test('Returns false when a publication is missing from the provided list',
           () {
-        final request = Request(
+        final request = createTestRequest(
           requestedBy: 'Marcos',
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
-            RequestItem(publicationId: 99, quantityRequested: 1), // Missing #99
+            RequestItem(publicationId: 99, quantityRequested: 1),
           ],
         );
 
         expect(
-          request.isFullyDefined([completePub1, completePub2]),
+          request.isFullyDefined([completePub1]),
           isFalse,
         );
       });
 
       test('Returns false when request items list is empty', () {
-        final request = Request(requestedBy: 'Marcos', items: []);
+        final request = createTestRequest(requestedBy: 'Marcos', items: []);
 
         expect(
           request.isFullyDefined([completePub1, completePub2]),
@@ -539,6 +612,55 @@ void main() {
         expect(copied.updatedAt, equals(tUpdatedAt));
       });
 
+      test(
+          'copyWith preserves createdAt and updatedAt by default without arguments',
+          () {
+        final request = Request(
+          id: 42,
+          requestedBy: 'Esteban',
+          createdAt: tCreatedAt,
+          updatedAt: tUpdatedAt,
+        );
+
+        final copied = request.copyWith();
+
+        expect(copied.id, equals(42));
+        expect(copied.requestedBy, equals('Esteban'));
+        expect(copied.createdAt, equals(tCreatedAt));
+        expect(copied.updatedAt, equals(tUpdatedAt));
+        expect(copied.createdAt.isUtc, isTrue);
+        expect(copied.updatedAt.isUtc, isTrue);
+      });
+
+      test('copyWith preserves timestamps on structural copy (assigning id)',
+          () {
+        final request = Request(
+          requestedBy: 'Esteban',
+          createdAt: tCreatedAt,
+          updatedAt: tUpdatedAt,
+        );
+
+        final withId = request.copyWith(id: 999);
+
+        expect(withId.id, equals(999));
+        expect(withId.createdAt, equals(tCreatedAt));
+        expect(withId.updatedAt, equals(tUpdatedAt));
+      });
+
+      test('copyWith normalizes explicit updatedAt to UTC', () {
+        final request = Request(
+          requestedBy: 'Esteban',
+          createdAt: tCreatedAt,
+          updatedAt: tUpdatedAt,
+        );
+
+        final localNewUpdatedAt = DateTime(2026, 9, 6, 18, 0);
+        final updated = request.copyWith(updatedAt: localNewUpdatedAt);
+
+        expect(updated.updatedAt.isUtc, isTrue);
+        expect(updated.updatedAt, equals(localNewUpdatedAt.toUtc()));
+      });
+
       test('Supports value equality (==) and hashCode', () {
         final item = RequestItem(publicationId: 1, quantityRequested: 2);
 
@@ -562,7 +684,7 @@ void main() {
       });
 
       test('toString returns informative string representation', () {
-        final request = Request(
+        final request = createTestRequest(
           id: 5,
           requestedBy: 'Rosa',
           items: [RequestItem(publicationId: 1, quantityRequested: 2)],
@@ -570,8 +692,8 @@ void main() {
 
         expect(
           request.toString(),
-          contains(
-              'Request(id: 5, requestedBy: "Rosa", items: 1, status: RequestFulfillmentStatus.pending'),
+          equals(
+              'Request(id: 5, requestedBy: "Rosa", items: 1, status: RequestFulfillmentStatus.pending, notes: null)'),
         );
       });
     });

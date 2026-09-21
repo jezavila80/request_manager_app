@@ -1,9 +1,9 @@
+import '../../../../helpers/test_publication_factory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
 import 'package:request_manager_app/features/publications/data/publication_repository_impl.dart';
 import 'package:request_manager_app/features/publications/domain/duplicate_check_result.dart';
-import 'package:request_manager_app/features/publications/domain/publication.dart';
 import 'package:request_manager_app/features/publications/domain/publication_exceptions.dart';
 import 'package:request_manager_app/features/publications/domain/services/publication_duplicate_checker.dart';
 import 'package:request_manager_app/features/publications/domain/tri_state_value.dart';
@@ -31,7 +31,7 @@ void main() {
     test(
         '30. DuplicateCheckResult represents status and matches list correctly',
         () {
-      final pub = Publication(name: 'Test Pub');
+      final pub = createTestPublication(name: 'Test Pub');
       final result = DuplicateCheckResult(
         status: DuplicateCheckStatus.possibleDuplicate,
         matches: [pub],
@@ -43,11 +43,12 @@ void main() {
     });
 
     test('31. Test - código exacto duplicado', () async {
-      final existing =
-          Publication(name: 'Existente', code: 'RBI-8', isActive: true);
+      final existing = createTestPublication(
+          name: 'Existente', code: 'RBI-8', isActive: true);
       await repository.create(existing);
 
-      final candidate = Publication(name: 'Candidato Nuevo', code: 'RBI-8');
+      final candidate =
+          createTestPublication(name: 'Candidato Nuevo', code: 'RBI-8');
       final result = await checker.checkDuplicates(candidate);
 
       expect(result.status, DuplicateCheckStatus.duplicateCode);
@@ -56,11 +57,12 @@ void main() {
     });
 
     test('32. Test - código duplicado case-insensitive', () async {
-      final existing =
-          Publication(name: 'Existente', code: 'RBI-8', isActive: true);
+      final existing = createTestPublication(
+          name: 'Existente', code: 'RBI-8', isActive: true);
       await repository.create(existing);
 
-      final candidate = Publication(name: 'Candidato Nuevo', code: 'rbi-8');
+      final candidate =
+          createTestPublication(name: 'Candidato Nuevo', code: 'rbi-8');
       final result = await checker.checkDuplicates(candidate);
 
       expect(result.status, DuplicateCheckStatus.duplicateCode);
@@ -69,11 +71,12 @@ void main() {
     });
 
     test('33. Test - código parecido pero diferente', () async {
-      final existing =
-          Publication(name: 'Existente', code: 'RBI-8', isActive: true);
+      final existing = createTestPublication(
+          name: 'Existente', code: 'RBI-8', isActive: true);
       await repository.create(existing);
 
-      final candidate = Publication(name: 'Candidato Nuevo', code: 'RBI-80');
+      final candidate =
+          createTestPublication(name: 'Candidato Nuevo', code: 'RBI-80');
       final result = await checker.checkDuplicates(candidate);
 
       // Should not match duplicateCode, nor possibleDuplicate (different name)
@@ -82,7 +85,7 @@ void main() {
     });
 
     test('34. Test - mismo nombre y atributos (casing/espacios)', () async {
-      final existing = Publication(
+      final existing = createTestPublication(
         name: 'Biblia Letra Grande',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -91,7 +94,7 @@ void main() {
       );
       await repository.create(existing);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: ' biblia letra grande ',
         type: ' libro ',
         size: TriStateValue.conValor(' grande '),
@@ -105,7 +108,7 @@ void main() {
     });
 
     test('35. Test - mismo nombre, tamaño diferente', () async {
-      final existing = Publication(
+      final existing = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -114,7 +117,7 @@ void main() {
       );
       await repository.create(existing);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Bolsillo'),
@@ -127,7 +130,7 @@ void main() {
     });
 
     test('36. Test - mismo nombre, versión diferente', () async {
-      final existing = Publication(
+      final existing = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -136,7 +139,7 @@ void main() {
       );
       await repository.create(existing);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -149,7 +152,7 @@ void main() {
     });
 
     test('37. Test - NOT_APPLICABLE', () async {
-      final existing = Publication(
+      final existing = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: const TriStateValue.noAplica(),
@@ -158,7 +161,7 @@ void main() {
       );
       await repository.create(existing);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: const TriStateValue.noAplica(),
@@ -174,14 +177,14 @@ void main() {
         '38. Test - UNDEFINED vs NOT_APPLICABLE (non-identical but compatible)',
         () async {
       // 1. Existing has undefined, candidate has not_applicable
-      final existing1 = Publication(
+      final existing1 = createTestPublication(
         name: 'Biblia Undef',
         size: const TriStateValue.sinDefinir(),
         isActive: true,
       );
       await repository.create(existing1);
 
-      final candidate1 = Publication(
+      final candidate1 = createTestPublication(
         name: 'Biblia Undef',
         size: const TriStateValue.noAplica(),
       );
@@ -189,14 +192,14 @@ void main() {
       expect(result1.status, DuplicateCheckStatus.possibleDuplicate);
 
       // 2. Existing has not_applicable, candidate has undefined
-      final existing2 = Publication(
+      final existing2 = createTestPublication(
         name: 'Biblia NotApp',
         size: const TriStateValue.noAplica(),
         isActive: true,
       );
       await repository.create(existing2);
 
-      final candidate2 = Publication(
+      final candidate2 = createTestPublication(
         name: 'Biblia NotApp',
         size: const TriStateValue.sinDefinir(),
       );
@@ -205,7 +208,7 @@ void main() {
     });
 
     test('39. Test - Drafts idénticos', () async {
-      final existingDraft = Publication(
+      final existingDraft = createTestPublication(
         code: null,
         name: 'Biblia por identificar',
         type: null,
@@ -215,7 +218,7 @@ void main() {
       );
       await repository.create(existingDraft);
 
-      final candidateDraft = Publication(
+      final candidateDraft = createTestPublication(
         code: null,
         name: 'Biblia por identificar',
         type: null,
@@ -230,7 +233,7 @@ void main() {
     });
 
     test('40. Test - Draft compatible con registro más completo', () async {
-      final existingIncomplete = Publication(
+      final existingIncomplete = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -239,7 +242,7 @@ void main() {
       );
       await repository.create(existingIncomplete);
 
-      final candidateComplete = Publication(
+      final candidateComplete = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -252,7 +255,7 @@ void main() {
     });
 
     test('41. Test - contradicción explícita', () async {
-      final existing = Publication(
+      final existing = createTestPublication(
         name: 'Biblia',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -261,7 +264,7 @@ void main() {
       );
       await repository.create(existing);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: 'Biblia',
         type: 'Revista', // different type -> contradiction
         size: TriStateValue.conValor('Grande'),
@@ -277,23 +280,25 @@ void main() {
         '42. Test - inactivo: código duplicado bloquea, atributos similares se ignoran',
         () async {
       // Test code duplicate with inactive record
-      final inactive1 =
-          Publication(name: 'Inactivo 1', code: 'RBI-8', isActive: false);
+      final inactive1 = createTestPublication(
+          name: 'Inactivo 1', code: 'RBI-8', isActive: false);
       await repository.create(inactive1);
 
-      final candidate1 = Publication(name: 'Candidato', code: 'RBI-8');
+      final candidate1 =
+          createTestPublication(name: 'Candidato', code: 'RBI-8');
       final result1 = await checker.checkDuplicates(candidate1);
       expect(result1.status, DuplicateCheckStatus.duplicateCode);
       expect(result1.matches.length, 1);
       expect(result1.matches.first.name, 'Inactivo 1');
 
       // Test code duplicate with inactive record and different casing (rbi-8 vs RBI-8)
-      final candidateCase = Publication(name: 'Candidato Case', code: 'rbi-8');
+      final candidateCase =
+          createTestPublication(name: 'Candidato Case', code: 'rbi-8');
       final resultCase = await checker.checkDuplicates(candidateCase);
       expect(resultCase.status, DuplicateCheckStatus.duplicateCode);
 
       // Test attribute duplicate with inactive record (must return none, not possibleDuplicate)
-      final inactive2 = Publication(
+      final inactive2 = createTestPublication(
         name: 'Biblia Letra Grande',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -302,7 +307,7 @@ void main() {
       );
       await repository.create(inactive2);
 
-      final candidate2 = Publication(
+      final candidate2 = createTestPublication(
         name: 'Biblia Letra Grande',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -313,14 +318,14 @@ void main() {
     });
 
     test('43. Test - múltiples coincidencias', () async {
-      final existing1 = Publication(
+      final existing1 = createTestPublication(
         name: 'Biblia Duplicada',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
         version: const TriStateValue.sinDefinir(),
         isActive: true,
       );
-      final existing2 = Publication(
+      final existing2 = createTestPublication(
         name: 'Biblia Duplicada',
         type: 'Libro',
         size: const TriStateValue.sinDefinir(),
@@ -330,7 +335,7 @@ void main() {
       await repository.create(existing1);
       await repository.create(existing2);
 
-      final candidate = Publication(
+      final candidate = createTestPublication(
         name: 'Biblia Duplicada',
         type: 'Libro',
         size: TriStateValue.conValor('Grande'),
@@ -345,14 +350,14 @@ void main() {
     test(
         '44. Regresión CREATE: checker previene insert si existe código inactivo',
         () async {
-      final inactivePub = Publication(
+      final inactivePub = createTestPublication(
         name: 'Biblia Antigua Inactiva',
         code: 'RBI-8',
         isActive: false,
       );
       await repository.create(inactivePub);
 
-      final newCandidate = Publication(
+      final newCandidate = createTestPublication(
         name: 'Nueva Biblia RBI-8',
         code: 'RBI-8',
         isActive: true,
