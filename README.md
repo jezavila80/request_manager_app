@@ -587,7 +587,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4 y 2.4.1 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1 y 2.5 completadas)
 
 ### Objetivo
 
@@ -611,15 +611,12 @@ Un pedido:
 * [x] **2.3 Persistencia de creación de solicitudes (`RequestLocalDataSource`, `RequestRepository`, `CreateRequestUseCase`).**
 * [x] **2.4 Consulta de solicitudes (`getAll`, `getById`).**
 * [x] **2.4.1 Infraestructura temporal UTC y refactorización de timestamps (`AppClock`, `AppDateTime`, timestamps UTC de dominio, persistencia ISO-8601 con 'Z' y `updatedAt` explícito en mutaciones).**
-* [ ] Crear la vista **Nuevo pedido**.
-* [ ] Permitir capturar solicitante.
-* [ ] Permitir capturar la fecha del pedido.
-* [ ] Permitir agregar múltiples artículos.
-* [ ] Capturar cantidad solicitada por artículo.
-* [ ] Permitir eliminar un artículo antes de guardar el pedido.
-* [ ] Validar que el pedido contenga al menos un artículo.
-* [ ] Guardar pedido y artículos de manera consistente.
-* [ ] Evitar guardar pedidos parcialmente persistidos en caso de error.
+* [x] **2.5 Agregar publicaciones existentes a un nuevo pedido (`AddPublicationToRequestUseCase`, `AddPublicationResult`, construcción del pedido en memoria, múltiples publicaciones, cantidades solicitadas, detección de repetidas, acumulación confirmada, `AppClock` para timestamps y persistencia completa mediante `CreateRequestUseCase`).**
+* [ ] **2.6 Búsqueda / autocompletado de publicaciones para el pedido.**
+* [ ] **2.7 Creación de Draft Publication desde pedido.**
+* [ ] **2.8 Lista básica de pedidos (UI).**
+* [ ] **2.9 Detalle de pedido (UI).**
+* [ ] **2.10 Validación del flujo y persistencia real de pedidos.**
 
 ---
 

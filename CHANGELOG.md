@@ -30,6 +30,14 @@ El proyecto utiliza versionamiento:
 - Establecida la infraestructura central de tiempo UTC con `AppClock` (y su implementación productiva `SystemClock`) y `AppDateTime` para normalización y conversión temporal (Fase 2.4.1).
 - Creado helper de pruebas `FixedClock` bajo `test/core/time/` para inyección temporal determinista en tests.
 - Añadidos 20 tests unitarios y de integración para la infraestructura temporal UTC y consistencia de agregados, alcanzando 276 tests productivos en total (276/276 passing).
+- Implementada la lógica de aplicación para construir un nuevo `Request` en memoria con timestamps UTC provistos por `AppClock` (`AddPublicationToRequestUseCase.createRequest`) (Fase 2.5).
+- Incorporación de publicaciones existentes mediante `AddPublicationToRequestUseCase.addPublication` asignando `quantityFulfilled = 0` para nuevos renglones.
+- Creado el resultado sellado tipado `AddPublicationResult` con variantes `PublicationAddedToRequest` y `PublicationAlreadyInRequest`.
+- Detección preventiva de publicaciones repetidas en el pedido sin mutar el agregado ni lanzar excepciones.
+- Confirmación explícita requerida antes de acumular cantidades sobre publicaciones repetidas (`confirmAccumulation`, `confirmAccumulationForPublication`).
+- Acumulación de cantidades solicitadas sobre el mismo `RequestItem` sin duplicarlo en la lista, preservando su `quantityFulfilled` original y actualizando su `updatedAt`.
+- Construcción completa del agregado `Request` en memoria con compatibilidad directa hacia `CreateRequestUseCase` para su posterior persistencia final transaccional.
+- Añadidos 16 tests unitarios y de integración para `AddPublicationToRequestUseCase`, alcanzando 292 tests en total (292/292 passing).
 
 ### Fixed
 
