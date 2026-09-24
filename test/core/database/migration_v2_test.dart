@@ -74,6 +74,7 @@ void main() {
       final dbV2 = await AppDatabase.instance.initDatabaseForTesting(
         dbPath,
         factory: databaseFactoryFfi,
+        targetVersion: 2,
       );
 
       // Check DB version is updated to 2
@@ -128,6 +129,7 @@ void main() {
       final db = await AppDatabase.instance.initDatabaseForTesting(
         dbPath,
         factory: databaseFactoryFfi,
+        targetVersion: 2,
       );
 
       final nowStr = DateTime.now().toIso8601String();
@@ -153,6 +155,7 @@ void main() {
       final dbReopened = await AppDatabase.instance.initDatabaseForTesting(
         dbPath,
         factory: databaseFactoryFfi,
+        targetVersion: 2,
       );
 
       final version = await dbReopened.getVersion();

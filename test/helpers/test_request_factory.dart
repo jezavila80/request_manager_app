@@ -4,7 +4,7 @@ import 'package:request_manager_app/features/requests/domain/request_item.dart';
 /// Test helper to construct [Request] instances with deterministic UTC timestamps.
 Request createTestRequest({
   int? id,
-  required String requestedBy,
+  int requesterId = 1,
   List<RequestItem> items = const [],
   String? notes,
   DateTime? createdAt,
@@ -14,7 +14,7 @@ Request createTestRequest({
   final effectiveCreatedAt = createdAt ?? defaultTimestamp;
   return Request(
     id: id,
-    requestedBy: requestedBy,
+    requesterId: requesterId,
     items: items,
     notes: notes,
     createdAt: effectiveCreatedAt,

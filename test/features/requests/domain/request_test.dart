@@ -15,14 +15,14 @@ void main() {
     final tActionTime = DateTime.utc(2026, 9, 6, 11, 0);
 
     test(
-        'Creates valid Request with trimmed requestedBy and unmodifiable items',
+        'Creates valid Request with positive requesterId and unmodifiable items',
         () {
       final item1 = RequestItem(publicationId: 1, quantityRequested: 5);
       final item2 = RequestItem(publicationId: 2, quantityRequested: 10);
 
       final request = Request(
         id: 100,
-        requestedBy: '  Juan Pérez  ',
+        requesterId: 4,
         items: [item1, item2],
         notes: '  Entregar por la mañana  ',
         createdAt: tCreatedAt,
@@ -30,7 +30,7 @@ void main() {
       );
 
       expect(request.id, equals(100));
-      expect(request.requestedBy, equals('Juan Pérez'));
+      expect(request.requesterId, equals(4));
       expect(request.notes, equals('Entregar por la mañana'));
       expect(request.items.length, equals(2));
       expect(request.createdAt, equals(tCreatedAt));
@@ -49,30 +49,29 @@ void main() {
 
     test('Trims notes and converts blank string to null', () {
       final request = createTestRequest(
-        requestedBy: 'María',
         notes: '   ',
       );
       expect(request.notes, isNull);
     });
 
-    test('Throws ArgumentError if requestedBy is empty or only whitespace', () {
+    test('Throws ArgumentError if requesterId <= 0', () {
       expect(
-        () => createTestRequest(requestedBy: ''),
+        () => createTestRequest(requesterId: 0),
         throwsArgumentError,
       );
       expect(
-        () => createTestRequest(requestedBy: '   '),
+        () => createTestRequest(requesterId: -5),
         throwsArgumentError,
       );
     });
 
     test('Throws ArgumentError if id <= 0', () {
       expect(
-        () => createTestRequest(id: 0, requestedBy: 'Carlos'),
+        () => createTestRequest(id: 0),
         throwsArgumentError,
       );
       expect(
-        () => createTestRequest(id: -5, requestedBy: 'Carlos'),
+        () => createTestRequest(id: -5),
         throwsArgumentError,
       );
     });
@@ -83,7 +82,7 @@ void main() {
 
       expect(
         () => Request(
-          requestedBy: 'Pedro',
+          requesterId: 1,
           createdAt: created,
           updatedAt: earlier,
         ),
@@ -97,7 +96,7 @@ void main() {
       final localUpdated = DateTime(2026, 9, 6, 11, 0);
 
       final req = Request(
-        requestedBy: 'Pedro',
+        requesterId: 1,
         createdAt: localCreated,
         updatedAt: localUpdated,
       );
@@ -116,7 +115,7 @@ void main() {
 
       expect(
         () => createTestRequest(
-          requestedBy: 'Ana',
+          requesterId: 1,
           items: [item1, item2],
         ),
         throwsA(isA<DuplicatePublicationInRequestException>()),
@@ -144,7 +143,7 @@ void main() {
         );
 
         final request = createTestRequest(
-          requestedBy: 'Luis',
+          requesterId: 1,
           items: [item1, item2, item3],
         );
 
@@ -154,7 +153,7 @@ void main() {
 
       test('Returns 0 totals and isValidForOrder = false for empty request',
           () {
-        final request = createTestRequest(requestedBy: 'Mateo', items: []);
+        final request = createTestRequest(requesterId: 1, items: []);
 
         expect(request.totalQuantityRequested, equals(0));
         expect(request.totalQuantityFulfilled, equals(0));
@@ -165,7 +164,7 @@ void main() {
     group('Fulfillment Status Calculation Tests', () {
       test('Returns PENDING for empty request (documented baseline behavior)',
           () {
-        final request = createTestRequest(requestedBy: 'Sofia', items: []);
+        final request = createTestRequest(requesterId: 1, items: []);
         expect(
           request.fulfillmentStatus,
           equals(RequestFulfillmentStatus.pending),
@@ -185,7 +184,7 @@ void main() {
         );
 
         final request = createTestRequest(
-          requestedBy: 'Sofia',
+          requesterId: 1,
           items: [item1, item2],
         );
 
@@ -210,7 +209,7 @@ void main() {
         );
 
         final request = createTestRequest(
-          requestedBy: 'Sofia',
+          requesterId: 1,
           items: [item1, item2],
         );
 
@@ -224,7 +223,7 @@ void main() {
           () {
         // Case A: 1 item complete, 1 partial, 1 zero
         final requestA = createTestRequest(
-          requestedBy: 'Diego',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: 1, quantityRequested: 10, quantityFulfilled: 10),
@@ -241,7 +240,7 @@ void main() {
 
         // Case B: 1 item zero, 1 partial
         final requestB = createTestRequest(
-          requestedBy: 'Diego',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: 1, quantityRequested: 5, quantityFulfilled: 0),
@@ -259,7 +258,7 @@ void main() {
     group('Domain Item Management Operations Tests', () {
       test('addItem appends item and updates updatedAt with UTC timestamp', () {
         final request = Request(
-          requestedBy: 'Laura',
+          requesterId: 1,
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
         );
@@ -278,7 +277,7 @@ void main() {
           'addItem throws DuplicatePublicationInRequestException if publicationId exists',
           () {
         final item1 = RequestItem(publicationId: 10, quantityRequested: 4);
-        final request = createTestRequest(requestedBy: 'Laura', items: [item1]);
+        final request = createTestRequest(requesterId: 1, items: [item1]);
 
         final itemDuplicate =
             RequestItem(publicationId: 10, quantityRequested: 2);
@@ -303,7 +302,7 @@ void main() {
         );
 
         final request = Request(
-          requestedBy: 'Elena',
+          requesterId: 1,
           items: [item1, item2],
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
@@ -330,7 +329,7 @@ void main() {
       test(
           'removeItem throws RequestItemNotFoundException if publicationId not found',
           () {
-        final request = createTestRequest(requestedBy: 'Elena');
+        final request = createTestRequest(requesterId: 1);
 
         expect(
           () => request.removeItem(99, updatedAt: tActionTime),
@@ -351,7 +350,7 @@ void main() {
           );
 
           final request = Request(
-            requestedBy: 'Gabriel',
+            requesterId: 1,
             items: [originalItem],
             createdAt: tCreatedAt,
             updatedAt: tCreatedAt,
@@ -391,7 +390,7 @@ void main() {
           );
 
           final request = createTestRequest(
-            requestedBy: 'Gabriel',
+            requesterId: 1,
             items: [itemDraft, itemExisting],
           );
 
@@ -413,7 +412,7 @@ void main() {
         test('replaceItemPublication returns identical instance if old == new',
             () {
           final item = RequestItem(publicationId: 8, quantityRequested: 5);
-          final request = createTestRequest(requestedBy: 'Hugo', items: [item]);
+          final request = createTestRequest(requesterId: 1, items: [item]);
 
           final updated = request.replaceItemPublication(
             oldPublicationId: 8,
@@ -427,7 +426,7 @@ void main() {
         test(
             'replaceItemPublication throws RequestItemNotFoundException if oldPublicationId is not in request',
             () {
-          final request = createTestRequest(requestedBy: 'Hugo');
+          final request = createTestRequest(requesterId: 1);
 
           expect(
             () => request.replaceItemPublication(
@@ -449,7 +448,7 @@ void main() {
           quantityFulfilled: 2,
         );
         final request = Request(
-          requestedBy: 'Irene',
+          requesterId: 1,
           items: [item],
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
@@ -484,7 +483,7 @@ void main() {
           quantityFulfilled: 2,
         );
         final request = Request(
-          requestedBy: 'Irene',
+          requesterId: 1,
           items: [item],
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
@@ -534,7 +533,7 @@ void main() {
 
       test('Returns true when all items refer to COMPLETE publications', () {
         final request = createTestRequest(
-          requestedBy: 'Marcos',
+          requesterId: 1,
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
             RequestItem(publicationId: 8, quantityRequested: 5),
@@ -549,7 +548,7 @@ void main() {
 
       test('Returns false when any item refers to a DRAFT publication', () {
         final request = createTestRequest(
-          requestedBy: 'Marcos',
+          requesterId: 1,
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
             RequestItem(publicationId: 35, quantityRequested: 1),
@@ -565,7 +564,7 @@ void main() {
       test('Returns false when a publication is missing from the provided list',
           () {
         final request = createTestRequest(
-          requestedBy: 'Marcos',
+          requesterId: 1,
           items: [
             RequestItem(publicationId: 1, quantityRequested: 2),
             RequestItem(publicationId: 99, quantityRequested: 1),
@@ -579,7 +578,7 @@ void main() {
       });
 
       test('Returns false when request items list is empty', () {
-        final request = createTestRequest(requestedBy: 'Marcos', items: []);
+        final request = createTestRequest(requesterId: 1, items: []);
 
         expect(
           request.isFullyDefined([completePub1, completePub2]),
@@ -593,20 +592,20 @@ void main() {
           () {
         final request = Request(
           id: 1,
-          requestedBy: 'Valeria',
+          requesterId: 10,
           notes: 'Nota original',
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
         );
 
         final copied = request.copyWith(
-          requestedBy: 'Valeria Gómez',
+          requesterId: 20,
           notes: () => null,
           updatedAt: tUpdatedAt,
         );
 
         expect(copied.id, equals(1));
-        expect(copied.requestedBy, equals('Valeria Gómez'));
+        expect(copied.requesterId, equals(20));
         expect(copied.notes, isNull);
         expect(copied.createdAt, equals(tCreatedAt));
         expect(copied.updatedAt, equals(tUpdatedAt));
@@ -617,7 +616,7 @@ void main() {
           () {
         final request = Request(
           id: 42,
-          requestedBy: 'Esteban',
+          requesterId: 10,
           createdAt: tCreatedAt,
           updatedAt: tUpdatedAt,
         );
@@ -625,7 +624,7 @@ void main() {
         final copied = request.copyWith();
 
         expect(copied.id, equals(42));
-        expect(copied.requestedBy, equals('Esteban'));
+        expect(copied.requesterId, equals(10));
         expect(copied.createdAt, equals(tCreatedAt));
         expect(copied.updatedAt, equals(tUpdatedAt));
         expect(copied.createdAt.isUtc, isTrue);
@@ -635,7 +634,7 @@ void main() {
       test('copyWith preserves timestamps on structural copy (assigning id)',
           () {
         final request = Request(
-          requestedBy: 'Esteban',
+          requesterId: 10,
           createdAt: tCreatedAt,
           updatedAt: tUpdatedAt,
         );
@@ -643,13 +642,14 @@ void main() {
         final withId = request.copyWith(id: 999);
 
         expect(withId.id, equals(999));
+        expect(withId.requesterId, equals(10));
         expect(withId.createdAt, equals(tCreatedAt));
         expect(withId.updatedAt, equals(tUpdatedAt));
       });
 
       test('copyWith normalizes explicit updatedAt to UTC', () {
         final request = Request(
-          requestedBy: 'Esteban',
+          requesterId: 10,
           createdAt: tCreatedAt,
           updatedAt: tUpdatedAt,
         );
@@ -666,14 +666,14 @@ void main() {
 
         final req1 = Request(
           id: 10,
-          requestedBy: 'Pablo',
+          requesterId: 5,
           items: [item],
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
         );
         final req2 = Request(
           id: 10,
-          requestedBy: 'Pablo',
+          requesterId: 5,
           items: [item],
           createdAt: tCreatedAt,
           updatedAt: tCreatedAt,
@@ -686,14 +686,14 @@ void main() {
       test('toString returns informative string representation', () {
         final request = createTestRequest(
           id: 5,
-          requestedBy: 'Rosa',
+          requesterId: 1,
           items: [RequestItem(publicationId: 1, quantityRequested: 2)],
         );
 
         expect(
           request.toString(),
           equals(
-              'Request(id: 5, requestedBy: "Rosa", items: 1, status: RequestFulfillmentStatus.pending, notes: null)'),
+              'Request(id: 5, requesterId: 1, items: 1, status: RequestFulfillmentStatus.pending, notes: null)'),
         );
       });
     });

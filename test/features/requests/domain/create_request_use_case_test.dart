@@ -40,7 +40,7 @@ void main() {
         'call delegates valid Request to repository and returns persisted Request',
         () async {
       final request = createTestRequest(
-        requestedBy: 'María',
+        requesterId: 1,
         items: [RequestItem(publicationId: 2, quantityRequested: 1)],
       );
 
@@ -57,7 +57,7 @@ void main() {
         'call throws InvalidRequestForCreationException when request.isValidForOrder is false',
         () async {
       final invalidRequest = createTestRequest(
-        requestedBy: 'María',
+        requesterId: 1,
         items: const [],
       );
 
@@ -73,7 +73,7 @@ void main() {
         () async {
       final invalidRequest = createTestRequest(
         id: 12,
-        requestedBy: 'María',
+        requesterId: 1,
         items: [RequestItem(publicationId: 2, quantityRequested: 1)],
       );
 
@@ -88,7 +88,7 @@ void main() {
         'call throws RequestItemAlreadyPersistedException when any item.id is not null',
         () async {
       final invalidRequest = createTestRequest(
-        requestedBy: 'María',
+        requesterId: 1,
         items: [RequestItem(id: 44, publicationId: 2, quantityRequested: 1)],
       );
 

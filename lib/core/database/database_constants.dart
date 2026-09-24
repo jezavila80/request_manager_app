@@ -1,16 +1,20 @@
 class DatabaseConstants {
   static const String databaseName = 'request_manager.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   // Tables
   static const String tablePublications = 'publications';
   static const String tableRequests = 'requests';
   static const String tableRequestItems = 'request_items';
+  static const String tableRequesters = 'requesters';
 
   // Common Columns
   static const String columnId = 'id';
   static const String columnCreatedAt = 'created_at';
   static const String columnUpdatedAt = 'updated_at';
+
+  // Requesters Columns
+  static const String columnNormalizedName = 'normalized_name';
 
   // Publications Columns
   static const String columnCode = 'code';
@@ -25,6 +29,7 @@ class DatabaseConstants {
 
   // Requests Columns
   static const String columnRequestedBy = 'requested_by';
+  static const String columnRequesterId = 'requester_id';
   static const String columnNotes = 'notes';
 
   // RequestItems Columns

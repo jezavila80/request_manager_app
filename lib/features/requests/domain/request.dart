@@ -9,7 +9,7 @@ import 'request_item.dart';
 
 class Request {
   final int? id;
-  final String requestedBy;
+  final int requesterId;
   final List<RequestItem> _items;
   final String? notes;
   final DateTime createdAt;
@@ -18,7 +18,7 @@ class Request {
   // Private constructor to enforce validation in factory constructor
   Request._({
     this.id,
-    required this.requestedBy,
+    required this.requesterId,
     required List<RequestItem> items,
     this.notes,
     required this.createdAt,
@@ -28,14 +28,14 @@ class Request {
   /// Factory constructor to create and validate a [Request].
   ///
   /// Invariants:
-  /// - [requestedBy] cannot be empty or contain only whitespace.
+  /// - [requesterId] must be greater than zero.
   /// - [items] cannot contain duplicate [publicationId] references.
   /// - [updatedAt] cannot be earlier than [createdAt].
   ///
   /// Timestamps [createdAt] and [updatedAt] are required and normalized to UTC.
   factory Request({
     int? id,
-    required String requestedBy,
+    required int requesterId,
     List<RequestItem> items = const [],
     String? notes,
     required DateTime createdAt,
@@ -45,10 +45,8 @@ class Request {
       throw ArgumentError('El ID del pedido debe ser mayor a cero.');
     }
 
-    final trimmedRequestedBy = requestedBy.trim();
-    if (trimmedRequestedBy.isEmpty) {
-      throw ArgumentError(
-          'El solicitante del pedido no puede estar vacío o contener únicamente espacios.');
+    if (requesterId <= 0) {
+      throw ArgumentError('El ID del solicitante debe ser mayor a cero.');
     }
 
     // Check duplicate publicationIds in initial items
@@ -72,7 +70,7 @@ class Request {
 
     return Request._(
       id: id,
-      requestedBy: trimmedRequestedBy,
+      requesterId: requesterId,
       items: List.unmodifiable(items),
       notes: normalizedNotes,
       createdAt: effectiveCreatedAt,
@@ -263,7 +261,7 @@ class Request {
   /// Preserves [createdAt] and [updatedAt] unless explicitly specified.
   Request copyWith({
     int? id,
-    String? requestedBy,
+    int? requesterId,
     List<RequestItem>? items,
     String? Function()? notes,
     DateTime? createdAt,
@@ -271,7 +269,7 @@ class Request {
   }) {
     return Request(
       id: id ?? this.id,
-      requestedBy: requestedBy ?? this.requestedBy,
+      requesterId: requesterId ?? this.requesterId,
       items: items ?? _items,
       notes: notes != null ? notes() : this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -285,7 +283,7 @@ class Request {
       other is Request &&
           runtimeType == other.runtimeType &&
           id == other.id &&
-          requestedBy == other.requestedBy &&
+          requesterId == other.requesterId &&
           notes == other.notes &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt &&
@@ -294,7 +292,7 @@ class Request {
   @override
   int get hashCode =>
       id.hashCode ^
-      requestedBy.hashCode ^
+      requesterId.hashCode ^
       notes.hashCode ^
       createdAt.hashCode ^
       updatedAt.hashCode ^
@@ -310,5 +308,5 @@ class Request {
 
   @override
   String toString() =>
-      'Request(id: $id, requestedBy: "$requestedBy", items: ${_items.length}, status: $fulfillmentStatus, notes: $notes)';
+      'Request(id: $id, requesterId: $requesterId, items: ${_items.length}, status: $fulfillmentStatus, notes: $notes)';
 }

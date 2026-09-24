@@ -7,7 +7,7 @@ class RequestMapper {
   static Map<String, Object?> toMap(Request request) {
     return {
       if (request.id != null) DatabaseConstants.columnId: request.id,
-      DatabaseConstants.columnRequestedBy: request.requestedBy,
+      DatabaseConstants.columnRequesterId: request.requesterId,
       DatabaseConstants.columnNotes: request.notes,
       DatabaseConstants.columnCreatedAt:
           AppDateTime.toStorage(request.createdAt),
@@ -21,8 +21,8 @@ class RequestMapper {
     List<RequestItem> items = const [],
   }) {
     final id = map[DatabaseConstants.columnId] as int?;
-    final requestedBy =
-        map[DatabaseConstants.columnRequestedBy] as String? ?? '';
+    final requesterId = map[DatabaseConstants.columnRequesterId] as int? ??
+        (map[DatabaseConstants.columnId] as int? ?? 1);
     final notes = map[DatabaseConstants.columnNotes] as String?;
     final createdAtStr = map[DatabaseConstants.columnCreatedAt] as String?;
     final updatedAtStr = map[DatabaseConstants.columnUpdatedAt] as String?;
@@ -41,7 +41,7 @@ class RequestMapper {
 
     return Request(
       id: id,
-      requestedBy: requestedBy,
+      requesterId: requesterId,
       items: items,
       notes: notes,
       createdAt: createdAt,

@@ -6,27 +6,38 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 void main() {
   sqfliteFfiInit();
 
-  group('Request and RequestItems SQLite Schema v2 Tests', () {
+  group('Request, Requester and RequestItems SQLite Schema v3 Tests', () {
     late Database db;
+    late int sampleRequesterId;
 
     setUp(() async {
       db = await AppDatabase.instance.initDatabaseForTesting(
         inMemoryDatabasePath,
         factory: databaseFactoryFfi,
       );
+      final nowStr = DateTime.now().toUtc().toIso8601String();
+      sampleRequesterId = await db.insert('requesters', {
+        'name': 'Carlos López',
+        'normalized_name': 'carlos lopez',
+        'is_active': 1,
+        'created_at': nowStr,
+        'updated_at': nowStr,
+      });
     });
 
     tearDown(() async {
       await AppDatabase.instance.close();
     });
 
-    test('DB v2 creation - tables publications, requests, request_items exist',
+    test(
+        'DB v3 creation - tables publications, requesters, requests, request_items exist',
         () async {
       final tables = await db.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('publications', 'requests', 'request_items');");
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('publications', 'requesters', 'requests', 'request_items');");
       final tableNames = tables.map((t) => t['name'] as String).toSet();
 
       expect(tableNames.contains('publications'), isTrue);
+      expect(tableNames.contains('requesters'), isTrue);
       expect(tableNames.contains('requests'), isTrue);
       expect(tableNames.contains('request_items'), isTrue);
     });
@@ -39,12 +50,13 @@ void main() {
         colNames,
         containsAll([
           'id',
-          'requested_by',
+          'requester_id',
           'notes',
           'created_at',
           'updated_at',
         ]),
       );
+      expect(colNames.contains('requested_by'), isFalse);
     });
 
     test('request_items table columns verification', () async {
@@ -65,9 +77,9 @@ void main() {
 
     group('requests Table Constraints Tests', () {
       test('Insert valid Request header succeeds', () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Carlos López',
+          'requester_id': sampleRequesterId,
           'notes': 'Entregar por la tarde',
           'created_at': nowStr,
           'updated_at': nowStr,
@@ -78,37 +90,27 @@ void main() {
         final rows =
             await db.query('requests', where: 'id = ?', whereArgs: [reqId]);
         expect(rows.length, equals(1));
-        expect(rows.first['requested_by'], equals('Carlos López'));
+        expect(rows.first['requester_id'], equals(sampleRequesterId));
         expect(rows.first['notes'], equals('Entregar por la tarde'));
       });
 
-      test('Rejects NULL, empty or whitespace-only requested_by', () async {
-        final nowStr = DateTime.now().toIso8601String();
+      test('Rejects NULL or non-existent requester_id', () async {
+        final nowStr = DateTime.now().toUtc().toIso8601String();
 
-        // Null requested_by
+        // Null requester_id
         expect(
           () => db.insert('requests', {
-            'requested_by': null,
+            'requester_id': null,
             'created_at': nowStr,
             'updated_at': nowStr,
           }),
           throwsA(isA<DatabaseException>()),
         );
 
-        // Empty requested_by
+        // Non-existent requester_id (FK violation)
         expect(
           () => db.insert('requests', {
-            'requested_by': '',
-            'created_at': nowStr,
-            'updated_at': nowStr,
-          }),
-          throwsA(isA<DatabaseException>()),
-        );
-
-        // Whitespace requested_by
-        expect(
-          () => db.insert('requests', {
-            'requested_by': '   ',
+            'requester_id': 999999,
             'created_at': nowStr,
             'updated_at': nowStr,
           }),
@@ -122,9 +124,9 @@ void main() {
       late int samplePubId;
 
       setUp(() async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         sampleReqId = await db.insert('requests', {
-          'requested_by': 'Ana',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -235,7 +237,7 @@ void main() {
     group('Foreign Keys & Cascade / Restrict Policies Tests', () {
       test('Rejects item with non-existent request_id (FK constraint)',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final pubId = await db.insert('publications', {
           'name': '¡Despertad!',
           'created_at': nowStr,
@@ -254,9 +256,9 @@ void main() {
 
       test('Rejects item with non-existent publication_id (FK constraint)',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Elena',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -272,9 +274,9 @@ void main() {
       });
 
       test('Allows item referencing a DRAFT publication', () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Elena',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -299,9 +301,9 @@ void main() {
       test(
           'ON DELETE CASCADE: Deleting Request deletes its child request_items',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Marcos',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -345,9 +347,9 @@ void main() {
       test(
           'ON DELETE RESTRICT: Deleting referenced Publication is rejected by SQLite',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Rosa',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -375,15 +377,32 @@ void main() {
             await db.query('publications', where: 'id = ?', whereArgs: [pubId]);
         expect(pubRows.length, equals(1));
       });
+
+      test(
+          'ON DELETE RESTRICT: Deleting referenced Requester is rejected by SQLite',
+          () async {
+        final nowStr = DateTime.now().toUtc().toIso8601String();
+        await db.insert('requests', {
+          'requester_id': sampleRequesterId,
+          'created_at': nowStr,
+          'updated_at': nowStr,
+        });
+
+        expect(
+          () => db.delete('requesters',
+              where: 'id = ?', whereArgs: [sampleRequesterId]),
+          throwsA(isA<DatabaseException>()),
+        );
+      });
     });
 
     group('Uniqueness & Publication Replacement Tests', () {
       test(
           'UNIQUE(request_id, publication_id) rejects duplicate publication in same request',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Mario',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -412,14 +431,14 @@ void main() {
       });
 
       test('Same publication_id in DIFFERENT requests is allowed', () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final req1 = await db.insert('requests', {
-          'requested_by': 'User 1',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
         final req2 = await db.insert('requests', {
-          'requested_by': 'User 2',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -448,9 +467,9 @@ void main() {
       test(
           'Replaces Draft publication_id with Complete publication_id preserving item identity and quantities',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Gabriel',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });
@@ -498,9 +517,9 @@ void main() {
       test(
           'Replaces publication_id with collision rejected by UNIQUE constraint',
           () async {
-        final nowStr = DateTime.now().toIso8601String();
+        final nowStr = DateTime.now().toUtc().toIso8601String();
         final reqId = await db.insert('requests', {
-          'requested_by': 'Gabriel',
+          'requester_id': sampleRequesterId,
           'created_at': nowStr,
           'updated_at': nowStr,
         });

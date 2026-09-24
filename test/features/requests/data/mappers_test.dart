@@ -49,7 +49,7 @@ void main() {
         () {
       final request = Request(
         id: 15,
-        requestedBy: 'Juan Pérez',
+        requesterId: 10,
         notes: 'Notas de entrega',
         createdAt: tCreatedAt,
         updatedAt: tUpdatedAt,
@@ -58,7 +58,7 @@ void main() {
       final map = RequestMapper.toMap(request);
 
       expect(map[DatabaseConstants.columnId], equals(15));
-      expect(map[DatabaseConstants.columnRequestedBy], equals('Juan Pérez'));
+      expect(map[DatabaseConstants.columnRequesterId], equals(10));
       expect(map[DatabaseConstants.columnNotes], equals('Notas de entrega'));
       expect((map[DatabaseConstants.columnCreatedAt] as String).endsWith('Z'),
           isTrue);
@@ -78,7 +78,7 @@ void main() {
 
       final request = Request(
         id: 16,
-        requestedBy: 'María Gómez',
+        requesterId: 12,
         createdAt: localCreated,
         updatedAt: localUpdated,
       );
@@ -104,7 +104,7 @@ void main() {
 
       final map = {
         DatabaseConstants.columnId: 15,
-        DatabaseConstants.columnRequestedBy: 'Juan Pérez',
+        DatabaseConstants.columnRequesterId: 10,
         DatabaseConstants.columnNotes: 'Notas de entrega',
         DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000Z',
         DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000Z',
@@ -113,7 +113,7 @@ void main() {
       final request = RequestMapper.fromMap(map, items: [item]);
 
       expect(request.id, equals(15));
-      expect(request.requestedBy, equals('Juan Pérez'));
+      expect(request.requesterId, equals(10));
       expect(request.notes, equals('Notas de entrega'));
       expect(request.items.length, equals(1));
       expect(request.items.first, equals(item));
@@ -128,13 +128,14 @@ void main() {
         () {
       final map = {
         DatabaseConstants.columnId: 20,
-        DatabaseConstants.columnRequestedBy: 'Ana',
+        DatabaseConstants.columnRequesterId: 5,
         DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000',
         DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000',
       };
 
       final request = RequestMapper.fromMap(map);
 
+      expect(request.requesterId, equals(5));
       expect(request.createdAt.isUtc, isTrue);
       expect(request.updatedAt.isUtc, isTrue);
     });
@@ -144,7 +145,7 @@ void main() {
         () {
       final validMap = {
         DatabaseConstants.columnId: 1,
-        DatabaseConstants.columnRequestedBy: 'Usuario',
+        DatabaseConstants.columnRequesterId: 1,
         DatabaseConstants.columnCreatedAt: '2026-09-07T10:00:00.000Z',
         DatabaseConstants.columnUpdatedAt: '2026-09-07T12:00:00.000Z',
       };

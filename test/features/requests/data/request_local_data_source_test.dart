@@ -19,6 +19,22 @@ void main() {
     late Database db;
     late RequestLocalDataSourceImpl dataSource;
 
+    Future<int> insertSampleRequester({
+      String name = 'Juan Pérez',
+      String? normalizedName,
+      bool isActive = true,
+    }) async {
+      final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
+      return await db.insert(DatabaseConstants.tableRequesters, {
+        DatabaseConstants.columnName: name,
+        DatabaseConstants.columnNormalizedName:
+            normalizedName ?? name.toLowerCase(),
+        DatabaseConstants.columnIsActive: isActive ? 1 : 0,
+        DatabaseConstants.columnCreatedAt: nowStr,
+        DatabaseConstants.columnUpdatedAt: nowStr,
+      });
+    }
+
     setUp(() async {
       db = await AppDatabase.instance.initDatabaseForTesting(
         inMemoryDatabasePath,
@@ -26,6 +42,7 @@ void main() {
       );
       dataSource =
           RequestLocalDataSourceImpl(appDatabase: AppDatabase.instance);
+      await insertSampleRequester();
     });
 
     tearDown(() async {
@@ -53,7 +70,7 @@ void main() {
       final now = DateTime.utc(2026, 9, 1, 10, 0);
 
       final originalRequest = Request(
-        requestedBy: 'Juan Pérez',
+        requesterId: 1,
         notes: 'Urgente',
         items: [
           RequestItem(
@@ -82,8 +99,7 @@ void main() {
         whereArgs: [persistedRequest.id],
       );
       expect(reqRows.length, equals(1));
-      expect(reqRows.first[DatabaseConstants.columnRequestedBy],
-          equals('Juan Pérez'));
+      expect(reqRows.first[DatabaseConstants.columnRequesterId], equals(1));
       expect(reqRows.first[DatabaseConstants.columnNotes], equals('Urgente'));
 
       final itemRows = await db.query(
@@ -106,7 +122,7 @@ void main() {
       final pub3 = await insertSamplePublication(code: 'PUB-3', name: 'Pub C');
 
       final originalRequest = createTestRequest(
-        requestedBy: 'María',
+        requesterId: 1,
         items: [
           RequestItem(publicationId: pub1, quantityRequested: 2),
           RequestItem(publicationId: pub2, quantityRequested: 4),
@@ -143,7 +159,7 @@ void main() {
       final originalItem =
           RequestItem(publicationId: pubId, quantityRequested: 3);
       final originalRequest = createTestRequest(
-        requestedBy: 'Carlos',
+        requesterId: 1,
         items: [originalItem],
       );
 
@@ -162,7 +178,7 @@ void main() {
       final pubId = await insertSamplePublication();
       final invalidRequest = createTestRequest(
         id: 99,
-        requestedBy: 'Carlos',
+        requesterId: 1,
         items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
       );
 
@@ -181,7 +197,7 @@ void main() {
         () async {
       final pubId = await insertSamplePublication();
       final invalidRequest = createTestRequest(
-        requestedBy: 'Carlos',
+        requesterId: 1,
         items: [
           RequestItem(id: 50, publicationId: pubId, quantityRequested: 1),
         ],
@@ -199,7 +215,7 @@ void main() {
 
     test('create rejects empty Request (isValidForOrder == false)', () async {
       final emptyRequest = createTestRequest(
-        requestedBy: 'Carlos',
+        requesterId: 1,
         items: const [],
       );
 
@@ -219,7 +235,7 @@ void main() {
           await insertSamplePublication(code: null, name: 'Borrador 1');
 
       final request = createTestRequest(
-        requestedBy: 'Pedro',
+        requesterId: 1,
         items: [
           RequestItem(publicationId: draftPubId, quantityRequested: 3),
         ],
@@ -236,7 +252,7 @@ void main() {
       final pub2 = await insertSamplePublication(code: 'P2', name: 'Pub 2');
 
       final request = createTestRequest(
-        requestedBy: 'Lucía',
+        requesterId: 1,
         items: [
           RequestItem(
               publicationId: pub1, quantityRequested: 5, quantityFulfilled: 2),
@@ -261,7 +277,7 @@ void main() {
     test('create preserves null notes', () async {
       final pubId = await insertSamplePublication();
       final request = createTestRequest(
-        requestedBy: 'Sofía',
+        requesterId: 1,
         notes: null,
         items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
       );
@@ -279,12 +295,12 @@ void main() {
       final pubId = await insertSamplePublication();
 
       final reqA = await dataSource.create(createTestRequest(
-        requestedBy: 'User A',
+        requesterId: 1,
         items: [RequestItem(publicationId: pubId, quantityRequested: 2)],
       ));
 
       final reqB = await dataSource.create(createTestRequest(
-        requestedBy: 'User B',
+        requesterId: 1,
         items: [RequestItem(publicationId: pubId, quantityRequested: 5)],
       ));
 
@@ -305,7 +321,7 @@ void main() {
       final validPubId = await insertSamplePublication();
 
       final invalidRequest = createTestRequest(
-        requestedBy: 'Gabriel',
+        requesterId: 1,
         items: [
           RequestItem(publicationId: validPubId, quantityRequested: 2),
           RequestItem(
@@ -348,6 +364,15 @@ void main() {
         final dbInstance = await AppDatabase.instance.database;
         final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
 
+        final reqId =
+            await dbInstance.insert(DatabaseConstants.tableRequesters, {
+          DatabaseConstants.columnName: 'Juan Pérez',
+          DatabaseConstants.columnNormalizedName: 'juan perez',
+          DatabaseConstants.columnIsActive: 1,
+          DatabaseConstants.columnCreatedAt: nowStr,
+          DatabaseConstants.columnUpdatedAt: nowStr,
+        });
+
         final pubA =
             await dbInstance.insert(DatabaseConstants.tablePublications, {
           DatabaseConstants.columnCode: 'PUB-A',
@@ -379,7 +404,7 @@ void main() {
         final reqUpdatedAt = reqCreatedAt.add(const Duration(minutes: 5));
 
         final newRequest = Request(
-          requestedBy: 'Juan Pérez',
+          requesterId: reqId,
           notes: 'Solicitud de prueba',
           createdAt: reqCreatedAt,
           updatedAt: reqUpdatedAt,
@@ -431,8 +456,7 @@ void main() {
           final reqRow = reqRows.first;
 
           expect(reqRow[DatabaseConstants.columnId], equals(expectedRequestId));
-          expect(reqRow[DatabaseConstants.columnRequestedBy],
-              equals('Juan Pérez'));
+          expect(reqRow[DatabaseConstants.columnRequesterId], equals(reqId));
           expect(reqRow[DatabaseConstants.columnNotes],
               equals('Solicitud de prueba'));
           expect(reqRow[DatabaseConstants.columnCreatedAt],
@@ -501,7 +525,7 @@ void main() {
       final pub2 = await insertSamplePublication(code: 'PUB-2', name: 'Pub 2');
 
       final validRequestA = createTestRequest(
-        requestedBy: 'Solicitud Preexistente A',
+        requesterId: 1,
         notes: 'Datos confirmados previos',
         items: [
           RequestItem(
@@ -514,7 +538,7 @@ void main() {
 
       // 2. Construir Request B con Item 1 (válido), Item 2 (válido), Item 3 (inexistente FK = 999999)
       final invalidRequestB = createTestRequest(
-        requestedBy: 'Solicitud Fallida B',
+        requesterId: 1,
         notes: 'Intento con FK inválida al final',
         items: [
           RequestItem(publicationId: pub1, quantityRequested: 3), // Válido #1
@@ -541,8 +565,8 @@ void main() {
       // a) No existe la cabecera B en 'requests'
       final reqBRows = await db.query(
         DatabaseConstants.tableRequests,
-        where: 'requested_by = ?',
-        whereArgs: ['Solicitud Fallida B'],
+        where: 'notes = ?',
+        whereArgs: ['Intento con FK inválida al final'],
       );
       expect(reqBRows, isEmpty);
 
@@ -579,8 +603,7 @@ void main() {
         whereArgs: [persistedReqA.id],
       );
       expect(reqARows.length, equals(1));
-      expect(reqARows.first[DatabaseConstants.columnRequestedBy],
-          equals('Solicitud Preexistente A'));
+      expect(reqARows.first[DatabaseConstants.columnRequesterId], equals(1));
 
       // e) Las publicaciones 1 y 2 permanecen intactas en la base
       final pubCount = Sqflite.firstIntValue(
@@ -614,7 +637,7 @@ void main() {
         final now = DateTime.utc(2026, 9, 16, 12, 0);
 
         final created = await dataSource.create(Request(
-          requestedBy: 'Ana Gómez',
+          requesterId: 1,
           notes: 'Nota importante',
           createdAt: now,
           updatedAt: now,
@@ -630,7 +653,7 @@ void main() {
 
         expect(retrieved, isNotNull);
         expect(retrieved!.id, equals(created.id));
-        expect(retrieved.requestedBy, equals('Ana Gómez'));
+        expect(retrieved.requesterId, equals(1));
         expect(retrieved.notes, equals('Nota importante'));
         expect(retrieved.createdAt.toIso8601String(),
             equals(now.toIso8601String()));
@@ -650,7 +673,7 @@ void main() {
         final p3 = await insertSamplePublication(code: 'P-3', name: 'C');
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Marcos',
+          requesterId: 1,
           items: [
             RequestItem(publicationId: p1, quantityRequested: 2),
             RequestItem(publicationId: p2, quantityRequested: 3),
@@ -678,19 +701,19 @@ void main() {
         final t3 = DateTime.utc(2026, 1, 3, 10, 0);
 
         final r1 = await dataSource.create(Request(
-          requestedBy: 'Req 1',
+          requesterId: 1,
           createdAt: t1,
           updatedAt: t1,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
         final r2 = await dataSource.create(Request(
-          requestedBy: 'Req 2',
+          requesterId: 1,
           createdAt: t2,
           updatedAt: t2,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
         final r3 = await dataSource.create(Request(
-          requestedBy: 'Req 3',
+          requesterId: 1,
           createdAt: t3,
           updatedAt: t3,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
@@ -711,13 +734,13 @@ void main() {
         final sameTime = DateTime.utc(2026, 5, 10, 12, 0);
 
         final r1 = await dataSource.create(Request(
-          requestedBy: 'Req Same A',
+          requesterId: 1,
           createdAt: sameTime,
           updatedAt: sameTime,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
         final r2 = await dataSource.create(Request(
-          requestedBy: 'Req Same B',
+          requesterId: 1,
           createdAt: sameTime,
           updatedAt: sameTime,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
@@ -737,7 +760,7 @@ void main() {
             await insertSamplePublication(code: null, name: 'Borrador X');
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Laura',
+          requesterId: 1,
           items: [RequestItem(publicationId: draftId, quantityRequested: 2)],
         ));
 
@@ -759,7 +782,7 @@ void main() {
         );
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Esteban',
+          requesterId: 1,
           items: [RequestItem(publicationId: inactiveId, quantityRequested: 3)],
         ));
 
@@ -776,7 +799,7 @@ void main() {
           () async {
         final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
         final emptyHeaderId = await db.insert(DatabaseConstants.tableRequests, {
-          DatabaseConstants.columnRequestedBy: 'Sin Renglones',
+          DatabaseConstants.columnRequesterId: 1,
           DatabaseConstants.columnNotes: 'Solo cabecera',
           DatabaseConstants.columnCreatedAt: nowStr,
           DatabaseConstants.columnUpdatedAt: nowStr,
@@ -806,6 +829,13 @@ void main() {
           final dbInst = await AppDatabase.instance.database;
 
           final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 1, 10, 0));
+          final reqId = await dbInst.insert(DatabaseConstants.tableRequesters, {
+            DatabaseConstants.columnName: 'Usuario Reopen',
+            DatabaseConstants.columnNormalizedName: 'usuario reopen',
+            DatabaseConstants.columnIsActive: 1,
+            DatabaseConstants.columnCreatedAt: nowStr,
+            DatabaseConstants.columnUpdatedAt: nowStr,
+          });
           final pubId =
               await dbInst.insert(DatabaseConstants.tablePublications, {
             DatabaseConstants.columnCode: 'PUB-REOPEN',
@@ -818,7 +848,7 @@ void main() {
           final reqUpdated = reqCreated.add(const Duration(minutes: 10));
 
           final created = await localDs.create(Request(
-            requestedBy: 'Usuario Reopen',
+            requesterId: reqId,
             notes: 'Nota persistida en disco',
             createdAt: reqCreated,
             updatedAt: reqUpdated,
@@ -842,7 +872,7 @@ void main() {
           final byId = await reopenedDs.getById(created.id!);
           expect(byId, isNotNull);
           expect(byId!.id, equals(created.id));
-          expect(byId.requestedBy, equals('Usuario Reopen'));
+          expect(byId.requesterId, equals(reqId));
           expect(byId.notes, equals('Nota persistida en disco'));
           expect(byId.createdAt.toIso8601String(),
               equals(reqCreated.toIso8601String()));
@@ -869,7 +899,7 @@ void main() {
         final updatedAt = DateTime.utc(2025, 3, 14, 16, 53, 58);
 
         final created = await dataSource.create(Request(
-          requestedBy: 'Timestamp Test',
+          requesterId: 1,
           createdAt: createdAt,
           updatedAt: updatedAt,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
@@ -884,7 +914,7 @@ void main() {
       test('getById preserves null notes', () async {
         final p = await insertSamplePublication();
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Null Notes Test',
+          requesterId: 1,
           notes: null,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
@@ -905,7 +935,7 @@ void main() {
             await insertSamplePublication(code: 'Q3', name: 'Item Fulfilled');
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Quantity Test',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: p1, quantityRequested: 10, quantityFulfilled: 0),
@@ -934,7 +964,7 @@ void main() {
         final p2 = await insertSamplePublication(code: 'F2', name: 'Pub F2');
 
         final pendingReq = await dataSource.create(createTestRequest(
-          requestedBy: 'Pending Tester',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: p1, quantityRequested: 5, quantityFulfilled: 0)
@@ -942,7 +972,7 @@ void main() {
         ));
 
         final partialReq = await dataSource.create(createTestRequest(
-          requestedBy: 'Partial Tester',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: p1, quantityRequested: 5, quantityFulfilled: 5),
@@ -952,7 +982,7 @@ void main() {
         ));
 
         final fulfilledReq = await dataSource.create(createTestRequest(
-          requestedBy: 'Fulfilled Tester',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: p1, quantityRequested: 5, quantityFulfilled: 5),
@@ -980,7 +1010,7 @@ void main() {
         final p2 = await insertSamplePublication(code: 'T2', name: 'T2');
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Totals Tester',
+          requesterId: 1,
           items: [
             RequestItem(
                 publicationId: p1, quantityRequested: 7, quantityFulfilled: 3),
@@ -1005,7 +1035,7 @@ void main() {
         final p2 = await insertSamplePublication(code: null, name: 'Draft Pub');
 
         final created = await dataSource.create(createTestRequest(
-          requestedBy: 'Define Tester',
+          requesterId: 1,
           items: [
             RequestItem(publicationId: p1, quantityRequested: 1),
             RequestItem(publicationId: p2, quantityRequested: 1),
@@ -1045,7 +1075,7 @@ void main() {
         final p = await insertSamplePublication(
             code: 'COMP-1', name: 'Comparison Pub');
         final original = await dataSource.create(createTestRequest(
-          requestedBy: 'Exact Match User',
+          requesterId: 1,
           notes: 'Comparación idéntica',
           items: [
             RequestItem(
@@ -1057,7 +1087,7 @@ void main() {
 
         expect(retrieved, isNotNull);
         expect(retrieved!.id, equals(original.id));
-        expect(retrieved.requestedBy, equals(original.requestedBy));
+        expect(retrieved.requesterId, equals(original.requesterId));
         expect(retrieved.notes, equals(original.notes));
         expect(retrieved.createdAt, equals(original.createdAt));
         expect(retrieved.updatedAt, equals(original.updatedAt));
@@ -1074,15 +1104,15 @@ void main() {
       test('getAll returns all requests after multiple creates', () async {
         final p = await insertSamplePublication();
         await dataSource.create(createTestRequest(
-          requestedBy: 'Batch 1',
+          requesterId: 1,
           items: [RequestItem(publicationId: p, quantityRequested: 1)],
         ));
         await dataSource.create(createTestRequest(
-          requestedBy: 'Batch 2',
+          requesterId: 1,
           items: [RequestItem(publicationId: p, quantityRequested: 2)],
         ));
         await dataSource.create(createTestRequest(
-          requestedBy: 'Batch 3',
+          requesterId: 1,
           items: [RequestItem(publicationId: p, quantityRequested: 3)],
         ));
 
@@ -1095,7 +1125,7 @@ void main() {
           () async {
         final validPubId = await insertSamplePublication();
         final validRequest = await dataSource.create(createTestRequest(
-          requestedBy: 'Corrupted FK Test',
+          requesterId: 1,
           items: [RequestItem(publicationId: validPubId, quantityRequested: 2)],
         ));
 

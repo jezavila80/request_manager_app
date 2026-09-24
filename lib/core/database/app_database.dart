@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'database_constants.dart';
 import 'migrations/migration_v1.dart';
 import 'migrations/migration_v2.dart';
+import 'migrations/migration_v3.dart';
 
 class AppDatabase {
   static final AppDatabase instance = AppDatabase._init();
@@ -18,15 +19,20 @@ class AppDatabase {
   }
 
   /// Initializes a database for testing purposes.
-  /// Allows passing a custom [path] (e.g. in-memory or temp file) and an optional custom [factory].
-  Future<Database> initDatabaseForTesting(String path,
-      {DatabaseFactory? factory}) async {
+  /// Allows passing a custom [path] (e.g. in-memory or temp file) and an optional custom [factory] and [targetVersion].
+  Future<Database> initDatabaseForTesting(
+    String path, {
+    DatabaseFactory? factory,
+    int? targetVersion,
+  }) async {
     if (_database != null) {
       await close();
     }
 
+    final v = targetVersion ?? DatabaseConstants.databaseVersion;
+
     final options = OpenDatabaseOptions(
-      version: DatabaseConstants.databaseVersion,
+      version: v,
       onConfigure: _configureDB,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
@@ -37,7 +43,7 @@ class AppDatabase {
     } else {
       _database = await openDatabase(
         path,
-        version: DatabaseConstants.databaseVersion,
+        version: v,
         onConfigure: _configureDB,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
@@ -70,11 +76,17 @@ class AppDatabase {
     if (version >= 2) {
       await MigrationV2.execute(db);
     }
+    if (version >= 3) {
+      await MigrationV3.execute(db);
+    }
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
+    if (oldVersion < 2 && newVersion >= 2) {
       await MigrationV2.execute(db);
+    }
+    if (oldVersion < 3 && newVersion >= 3) {
+      await MigrationV3.execute(db);
     }
   }
 

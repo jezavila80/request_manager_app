@@ -21,13 +21,13 @@ class AddPublicationToRequestUseCase {
   ///
   /// Guarantees that `createdAt == updatedAt` and both are UTC.
   Request createRequest({
-    required String requestedBy,
+    required int requesterId,
     String? notes,
     List<RequestItem> items = const [],
   }) {
     final now = _clock.nowUtc();
     return Request(
-      requestedBy: requestedBy,
+      requesterId: requesterId,
       notes: notes,
       items: items,
       createdAt: now,

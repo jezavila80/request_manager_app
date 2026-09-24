@@ -52,7 +52,7 @@ void main() {
 
     test('create delegates valid Request to RequestLocalDataSource', () async {
       final request = createTestRequest(
-        requestedBy: 'Juan',
+        requesterId: 1,
         items: [RequestItem(publicationId: 1, quantityRequested: 2)],
       );
 
@@ -68,7 +68,7 @@ void main() {
     test('create rejects Request without items (isValidForOrder == false)',
         () async {
       final invalidRequest = createTestRequest(
-        requestedBy: 'Juan',
+        requesterId: 1,
         items: const [],
       );
 
@@ -82,7 +82,7 @@ void main() {
     test('create rejects Request with pre-existing id', () async {
       final invalidRequest = createTestRequest(
         id: 5,
-        requestedBy: 'Juan',
+        requesterId: 1,
         items: [RequestItem(publicationId: 1, quantityRequested: 2)],
       );
 
@@ -95,7 +95,7 @@ void main() {
 
     test('create rejects RequestItem with pre-existing id', () async {
       final invalidRequest = createTestRequest(
-        requestedBy: 'Juan',
+        requesterId: 1,
         items: [RequestItem(id: 50, publicationId: 1, quantityRequested: 2)],
       );
 
@@ -111,7 +111,7 @@ void main() {
       final sampleRequests = [
         createTestRequest(
           id: 1,
-          requestedBy: 'Carlos',
+          requesterId: 1,
           items: [RequestItem(id: 1, publicationId: 10, quantityRequested: 1)],
         ),
       ];
@@ -126,7 +126,7 @@ void main() {
     test('getById delegates valid id to RequestLocalDataSource', () async {
       final sampleRequest = createTestRequest(
         id: 7,
-        requestedBy: 'Elena',
+        requesterId: 1,
         items: [RequestItem(id: 2, publicationId: 10, quantityRequested: 3)],
       );
       fakeDataSource.getByIdToReturn = sampleRequest;

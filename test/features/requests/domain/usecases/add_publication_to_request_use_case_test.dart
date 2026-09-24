@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/core/database/app_database.dart';
+import 'package:request_manager_app/core/database/database_constants.dart';
 import 'package:request_manager_app/core/time/app_clock.dart';
 import 'package:request_manager_app/features/publications/data/publication_local_data_source.dart';
 import 'package:request_manager_app/features/publications/domain/publication.dart';
@@ -54,11 +55,11 @@ void main() {
         '1-3. createRequest builds Request with AppClock, createdAt == updatedAt, and both are UTC',
         () {
       final request = useCase.createRequest(
-        requestedBy: 'María Gómez',
+        requesterId: 10,
         notes: 'Urgente para reunión',
       );
 
-      expect(request.requestedBy, equals('María Gómez'));
+      expect(request.requesterId, equals(10));
       expect(request.notes, equals('Urgente para reunión'));
       expect(request.items, isEmpty);
       expect(request.createdAt, equals(t0));
@@ -72,7 +73,7 @@ void main() {
     test(
         '4-5. addPublication creates a single RequestItem with quantityFulfilled == 0 when publication is new',
         () {
-      final request = useCase.createRequest(requestedBy: 'Carlos');
+      final request = useCase.createRequest(requesterId: 1);
 
       final result = useCase.addPublication(
         request: request,
@@ -99,7 +100,7 @@ void main() {
     test(
         '6. addPublication produces two distinct items when adding a second different publication',
         () {
-      final request0 = useCase.createRequest(requestedBy: 'Carlos');
+      final request0 = useCase.createRequest(requesterId: 1);
 
       final result1 = useCase.addPublication(
         request: request0,
@@ -128,7 +129,7 @@ void main() {
     test(
         '7. addPublication detects already existing publicationId and returns PublicationAlreadyInRequest without altering request',
         () {
-      final request0 = useCase.createRequest(requestedBy: 'Carlos');
+      final request0 = useCase.createRequest(requesterId: 1);
       final result1 = useCase.addPublication(
         request: request0,
         publication: pubC,
@@ -161,7 +162,7 @@ void main() {
     test(
         '8-9. confirmAccumulation keeps a single RequestItem and computes 1 + 1 = 2',
         () {
-      final request0 = useCase.createRequest(requestedBy: 'Carlos');
+      final request0 = useCase.createRequest(requesterId: 1);
       final result1 = useCase.addPublication(
         request: request0,
         publication: pubC,
@@ -194,7 +195,7 @@ void main() {
 
     // Requirement 10: Cantidad 2 + 3 = 5
     test('10. confirmAccumulation correctly computes 2 + 3 = 5', () {
-      final request0 = useCase.createRequest(requestedBy: 'Laura');
+      final request0 = useCase.createRequest(requesterId: 1);
       final result1 = useCase.addPublication(
         request: request0,
         publication: pubA,
@@ -224,7 +225,7 @@ void main() {
         quantityFulfilled: 2,
       );
       final request = Request(
-        requestedBy: 'Pedro',
+        requesterId: 1,
         items: [initialItem],
         createdAt: t0,
         updatedAt: t0,
@@ -245,7 +246,7 @@ void main() {
     test(
         '12. Quantity 0 is rejected with ArgumentError in addPublication and confirmAccumulation',
         () {
-      final request = useCase.createRequest(requestedBy: 'Test');
+      final request = useCase.createRequest(requesterId: 1);
 
       expect(
         () => useCase.addPublication(
@@ -270,7 +271,7 @@ void main() {
     test(
         '13. Negative quantity is rejected with ArgumentError in addPublication and confirmAccumulation',
         () {
-      final request = useCase.createRequest(requestedBy: 'Test');
+      final request = useCase.createRequest(requesterId: 1);
 
       expect(
         () => useCase.addPublication(
@@ -295,7 +296,7 @@ void main() {
     test('14. updatedAt updates using AppClock when adding and accumulating',
         () {
       // 1. Initial creation at t0
-      final req0 = useCase.createRequest(requestedBy: 'Cronología');
+      final req0 = useCase.createRequest(requesterId: 1);
       expect(req0.createdAt, equals(t0));
       expect(req0.updatedAt, equals(t0));
 
@@ -328,7 +329,7 @@ void main() {
     test(
         '17. Does not produce two RequestItem with the same publicationId across multiple operations',
         () {
-      var req = useCase.createRequest(requestedBy: 'Multi-Item Test');
+      var req = useCase.createRequest(requesterId: 1);
 
       // Add pubA
       final resA =
@@ -367,7 +368,7 @@ void main() {
     });
 
     test('Rejects publication without positive persisted ID', () {
-      final req = useCase.createRequest(requestedBy: 'Test');
+      final req = useCase.createRequest(requesterId: 1);
       final unpersistedPub = Publication(
         name: 'Sin Persistir',
         createdAt: t0,
@@ -387,7 +388,7 @@ void main() {
     test(
         'confirmAccumulation throws RequestItemNotFoundException if publicationId is not in request',
         () {
-      final req = useCase.createRequest(requestedBy: 'Test');
+      final req = useCase.createRequest(requesterId: 1);
       expect(
         () => useCase.confirmAccumulation(
           request: req,
@@ -401,7 +402,7 @@ void main() {
     test(
         'confirmAccumulationForPublication delegates properly and validates publication ID',
         () {
-      final req0 = useCase.createRequest(requestedBy: 'Convenience Test');
+      final req0 = useCase.createRequest(requesterId: 1);
       final res1 =
           useCase.addPublication(request: req0, publication: pubA, quantity: 1);
       final req1 = (res1 as PublicationAddedToRequest).request;
@@ -416,7 +417,7 @@ void main() {
     });
 
     test('AddPublicationResult equality and toString representation', () {
-      final req = useCase.createRequest(requestedBy: 'User');
+      final req = useCase.createRequest(requesterId: 1);
       final item = RequestItem(publicationId: pubA.id!, quantityRequested: 2);
 
       final added1 = PublicationAddedToRequest(
@@ -487,9 +488,21 @@ void main() {
       final p1 = pub1ToInsert.copyWith(id: p1Id);
       final p2 = pub2ToInsert.copyWith(id: p2Id);
 
+      // 1b. Insert requester into SQLite
+      final db = await AppDatabase.instance.database;
+      final reqId = await db.insert(DatabaseConstants.tableRequesters, {
+        DatabaseConstants.columnName: 'Comprador Final',
+        DatabaseConstants.columnNormalizedName: 'comprador final',
+        DatabaseConstants.columnIsActive: 1,
+        DatabaseConstants.columnCreatedAt:
+            DateTime.now().toUtc().toIso8601String(),
+        DatabaseConstants.columnUpdatedAt:
+            DateTime.now().toUtc().toIso8601String(),
+      });
+
       // 2. Build new request in memory
       var inMemoryRequest = addPublicationUseCase.createRequest(
-        requestedBy: 'Comprador Final',
+        requesterId: reqId,
         notes: 'Pedido validado end-to-end',
       );
 
@@ -546,7 +559,7 @@ void main() {
       // 4. Verify IDs assigned and persisted state in SQLite
       expect(persisted.id, isNotNull);
       expect(persisted.id, greaterThan(0));
-      expect(persisted.requestedBy, equals('Comprador Final'));
+      expect(persisted.requesterId, equals(reqId));
       expect(persisted.items.length, equals(2));
       expect(persisted.items[0].id, isNotNull);
       expect(persisted.items[0].publicationId, equals(p1.id));
