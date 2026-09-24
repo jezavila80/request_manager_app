@@ -10,18 +10,16 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.6+8**
+**0.1.8+10**
 
 Estado actual:
 - Base del proyecto y Design System completados.
-- Modelo Publication implementado y probado.
-- Persistencia SQLite v1 implementada.
-- Tabla publications y constraints validados.
-- Acceso local para registrar publicaciones completado.
-- Acceso local para consultar publicaciones completado.
-- Búsqueda local de publicaciones por nombre completada.
-- Búsqueda local de publicaciones por código completada.
-- Detección de duplicados por código y atributos (PublicationDuplicateChecker) completada.
+- Modelo Publication y catálogo implementados y validados.
+- Persistencia SQLite v3 implementada y migrada deterministamente desde v2.
+- Flujo de creación de pedidos en memoria con timestamps UTC (AppClock).
+- Búsqueda y autocompletado de publicaciones con debounce y prevención de repetidas (Fase 2.6).
+- Catálogo y selección persistente de solicitantes con normalización e identificación única (Fase 2.6.1).
+- Integración end-to-end de NewRequestPage con guardado atómico transaccional de pedidos.
 
 ---
 
@@ -587,7 +585,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1 y 2.5 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1, 2.5, 2.6 y 2.6.1 completadas)
 
 ### Objetivo
 
@@ -597,7 +595,7 @@ Permitir crear un pedido para un solicitante y agregar múltiples publicaciones 
 
 Un pedido:
 
-* Pertenece a un solicitante.
+* Pertenece a un solicitante (`requester_id` referenciando a la tabla `requesters`).
 * Tiene una fecha de creación/pedido.
 * Puede contener múltiples publicaciones.
 * No contiene precios.
@@ -612,11 +610,48 @@ Un pedido:
 * [x] **2.4 Consulta de solicitudes (`getAll`, `getById`).**
 * [x] **2.4.1 Infraestructura temporal UTC y refactorización de timestamps (`AppClock`, `AppDateTime`, timestamps UTC de dominio, persistencia ISO-8601 con 'Z' y `updatedAt` explícito en mutaciones).**
 * [x] **2.5 Agregar publicaciones existentes a un nuevo pedido (`AddPublicationToRequestUseCase`, `AddPublicationResult`, construcción del pedido en memoria, múltiples publicaciones, cantidades solicitadas, detección de repetidas, acumulación confirmada, `AppClock` para timestamps y persistencia completa mediante `CreateRequestUseCase`).**
-* [ ] **2.6 Búsqueda / autocompletado de publicaciones para el pedido.**
+* [x] **2.6 Búsqueda / autocompletado de publicaciones para el pedido (`NewRequestPage`, búsqueda combinada código/nombre, debounce 300 ms, stale-result protection, selección, cantidad, acumulación confirmada 2 + 3 = 5, resumen y guardado end-to-end).**
+* [x] **2.6.1 Catálogo y selección de solicitantes (`Requester`, normalización, SQLite v3, migración v2→v3, autocomplete, detección de duplicados exactos y advertencia de posibles coincidencias).**
 * [ ] **2.7 Creación de Draft Publication desde pedido.**
 * [ ] **2.8 Lista básica de pedidos (UI).**
 * [ ] **2.9 Detalle de pedido (UI).**
 * [ ] **2.10 Validación del flujo y persistencia real de pedidos.**
+
+---
+
+### Detalles funcionales y técnicos implementados
+
+#### Fase 2.6 — Búsqueda / autocompletado de publicaciones para el pedido
+* **`NewRequestPage`**: Pantalla para captura completa del pedido con acceso provisional mediante botón "Nuevo Pedido" desde la pestaña Pedidos en Preview.
+* **Búsqueda combinada**: Reutiliza `PublicationCatalogSearchService` priorizando coincidencia de código exacto con fallback a búsqueda por nombre (límite de 20 resultados).
+* **Debounce y concurrencia**: Debounce reactivo de 300 ms y protección contra respuestas asíncronas obsoletas (*stale results*). Una consulta vacía no dispara búsquedas ni muestra resultados.
+* **Selección y cantidad**: Muestra nombre, código, tipo y badge de status (`COMPLETE` / `DRAFT`). Permite definir la cantidad solicitada (mínimo 1).
+* **Detección de repetidas y acumulación aritmética**: Si la publicación ya fue agregada al pedido, solicita confirmación explícita al usuario y acumula aritméticamente sobre el mismo renglón (ej. `2 + 3 = 5`), sin duplicar el `RequestItem`.
+* **Resumen y guardado**: Lista de artículos agregados en memoria y persistencia atómica mediante `CreateRequestUseCase`. No hay persistencia parcial de renglones huérfanos.
+
+#### Fase 2.6.1 — Catálogo y selección de solicitantes
+* **Entidad `Requester`**: Identidad persistente con atributos `id`, `name` (visible), `normalizedName` (clave única), `isActive`, `createdAt` y `updatedAt`.
+* **Terminología**: "Solicitante" / "Solicitantes" visible en toda la interfaz de usuario.
+* **Regla de Nombre Significativo (`RequesterNameCleaner`)**:
+  1. Recorta espacios en los extremos (`trim`).
+  2. Colapsa múltiples espacios intermedios en un solo espacio.
+  3. Divide en tokens por espacio.
+  4. Considera significativo un token si contiene al menos una letra Unicode mediante `RegExp(r'[\p{L}]', unicode: true)` (incluyendo caracteres acentuados y `ñ`).
+  5. Exige al menos **dos palabras significativas** para evitar entradas incompletas o ambiguas.
+  * Ejemplos aceptados: `Maria Soto` ✓, `Congregación La Calma` ✓, `Sala Uno` ✓.
+  * Ejemplos rechazados: `Pepe` ✗ (1 sola palabra), `123 456` ✗ (sin letras), `Sala 1` ✗ (`1` carece de letras), `--- ***` ✗ (solo símbolos).
+* **Normalización para Identidad (`RequesterNameNormalizer`)**:
+  * Case-insensitive y accent-insensitive, pero con **preservación semántica de la letra `ñ`** (`Peña != Pena`).
+  * Ejemplos de identidad equivalente: `"María Soto"`, `"Maria Soto"`, `"MARIA SOTO"`, `"  María   Soto "` $\rightarrow$ `"maria soto"`.
+  * El nombre visible conserva la forma original capturada en el registro.
+* **Detección de Duplicados (`RequesterDuplicateChecker`)**:
+  * *Duplicado exacto*: Coincidencia en `normalized_name`. Diálogo bloqueante que permite seleccionar directamente al solicitante existente.
+  * *Posibles coincidencias*: Similitud Levenshtein con umbral $\ge 0.80$ (o distancia de edición $\le 2$ para nombres largos), ej. `"Maria Soto"` vs `"Mari Soto"`. Diálogo de advertencia que permite al usuario elegir entre reutilizar el existente o confirmar que es otra persona y crear el nuevo registro.
+* **Autocomplete y Alta Rápida**: Búsqueda reactiva con debounce de 300 ms, creación inline de solicitante nuevo y selección automática para el pedido actual.
+* **SQLite v3 y Migración v2 $\rightarrow$ v3 (`MigrationV3`)**:
+  * Nueva tabla `requesters` con restricción `UNIQUE(normalized_name)`.
+  * Evolución de la tabla `requests`: se elimina el texto libre `requested_by TEXT` y se adopta `requester_id INTEGER NOT NULL REFERENCES requesters(id) ON DELETE RESTRICT`.
+  * Migración determinista (`ORDER BY id ASC`): procesa pedidos históricos, normaliza `requested_by`, crea/reutiliza el solicitante (conservando la primera representación visible encontrada), asigna `requester_id` y preserva íntegramente los datos y renglones (`request_items`).
 
 ---
 

@@ -8,8 +8,19 @@ El proyecto utiliza versionamiento:
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-23
+
 ### Added
 
+- Búsqueda y autocompletado de publicaciones en la pantalla de Nuevo Pedido (`NewRequestPage`) con reutilización de `PublicationCatalogSearchService`, debounce de 300 ms y protección contra respuestas obsoletas (Fase 2.6).
+- Selección de publicaciones, configuración de cantidad solicitada (mínimo 1) y resumen interactivo de artículos agregados al pedido.
+- Confirmación explícita para acumulación aritmética de publicaciones ya agregadas (ej. 2 + 3 = 5) sobre el mismo `RequestItem`.
+- Guardado atómico end-to-end del pedido completo mediante `CreateRequestUseCase` y acceso provisional desde la pestaña Pedidos.
+- Catálogo e identidad persistente de solicitantes con la nueva entidad de dominio `Requester` (`id`, `name`, `normalizedName`, `isActive`, `createdAt`, `updatedAt`) (Fase 2.6.1).
+- Regla de validación de nombre significativo en `RequesterNameCleaner` que exige al menos dos palabras con caracteres alfabéticos Unicode (`RegExp(r'[\p{L}]', unicode: true)`).
+- Normalización determinista de solicitantes con `RequesterNameNormalizer` (case-insensitive, accent-insensitive y preservación semántica de la `ñ`).
+- Autocompletado reactivo de solicitantes con debounce de 300 ms y flujo de creación rápida con selección automática.
+- Detección preventiva de duplicados en dos niveles con `RequesterDuplicateChecker`: bloqueo duro ante duplicado exacto normalizado y diálogo de advertencia ante posibles coincidencias (similitud Levenshtein >= 0.80).
 - Creadas las entidades de dominio inmutables `Request` y `RequestItem` para la gestión de solicitudes y pedidos de publicaciones (Fase 2.1).
 - Implementado el cálculo derivado de estado de surtido (`RequestFulfillmentStatus`: `pending`, `partiallyFulfilled`, `fulfilled`).
 - Implementada evaluación de definición completa del pedido (`isFullyDefined`) basada en publicaciones en estado `COMPLETE`.
@@ -21,15 +32,12 @@ El proyecto utiliza versionamiento:
 - Implementada la asignación y devolución inmutable de IDs generados por SQLite para la cabecera del pedido y cada uno de sus ítems conservando el orden de entrada exacto.
 - Añadidas validaciones pre-transacción (`isValidForOrder`, id nulo) y rollback atómico (todo o nada) mediante `db.transaction(...)`.
 - Creadas las excepciones de dominio/persistencia de solicitudes `RequestPersistenceException`, `InvalidRequestForCreationException`, `RequestAlreadyPersistedException` y `RequestItemAlreadyPersistedException`.
-- Añadidos tests unitarios e integrados para `RequestLocalDataSourceImpl`, `RequestRepositoryImpl` y `CreateRequestUseCase` alcanzando 232 tests productivos en total (incluyendo pruebas de persistencia física con reapertura de DB y rollback atómico con múltiples inserciones).
 - Implementada la consulta productiva de solicitudes completas mediante `getAll` y `getById` en `RequestRepository` y `RequestLocalDataSource` (Fase 2.4).
 - Reconstrucción fiel de agregados `Request` + `RequestItem[]` desde SQLite preservando timestamps exactos (`createdAt`, `updatedAt`), notas nulas y orden estable de renglones (`ORDER BY id ASC`).
 - Orden determinista de solicitudes en `getAll` (`ORDER BY created_at DESC, id DESC`).
 - Verificación de integridad referencial de publicaciones al leer solicitudes en transacciones SQLite consistentes con mitigación de corrupción.
-- Añadidos 24 tests unitarios y de integración para `getAll` y `getById`, alcanzando 256 tests productivos en total.
 - Establecida la infraestructura central de tiempo UTC con `AppClock` (y su implementación productiva `SystemClock`) y `AppDateTime` para normalización y conversión temporal (Fase 2.4.1).
 - Creado helper de pruebas `FixedClock` bajo `test/core/time/` para inyección temporal determinista en tests.
-- Añadidos 20 tests unitarios y de integración para la infraestructura temporal UTC y consistencia de agregados, alcanzando 276 tests productivos en total (276/276 passing).
 - Implementada la lógica de aplicación para construir un nuevo `Request` en memoria con timestamps UTC provistos por `AppClock` (`AddPublicationToRequestUseCase.createRequest`) (Fase 2.5).
 - Incorporación de publicaciones existentes mediante `AddPublicationToRequestUseCase.addPublication` asignando `quantityFulfilled = 0` para nuevos renglones.
 - Creado el resultado sellado tipado `AddPublicationResult` con variantes `PublicationAddedToRequest` y `PublicationAlreadyInRequest`.
@@ -37,15 +45,13 @@ El proyecto utiliza versionamiento:
 - Confirmación explícita requerida antes de acumular cantidades sobre publicaciones repetidas (`confirmAccumulation`, `confirmAccumulationForPublication`).
 - Acumulación de cantidades solicitadas sobre el mismo `RequestItem` sin duplicarlo en la lista, preservando su `quantityFulfilled` original y actualizando su `updatedAt`.
 - Construcción completa del agregado `Request` en memoria con compatibilidad directa hacia `CreateRequestUseCase` para su posterior persistencia final transaccional.
-- Añadidos 16 tests unitarios y de integración para `AddPublicationToRequestUseCase`, alcanzando 292 tests en total (292/292 passing).
-
-### Fixed
-
-- Corregido el orden alfabético del catálogo en SQLite para ignorar signos de puntuación iniciales (`¡`, `¿`, `"`, `'`, `(`, `[`) en los nombres de publicaciones sin alterar el texto almacenado ni mostrado.
-- Corregido overflow vertical en la pantalla de Publicaciones al abrir el teclado durante una búsqueda.
+- Suite integral de pruebas unitarias, de integración y de widgets alcanzando 352 tests productivos (352/352 passing).
 
 ### Changed
 
+- Evolución del modelo `Request` y persistencia para referenciar `requesterId` en lugar del texto libre `requestedBy` (Fase 2.6.1).
+- Esquema de base de datos actualizado a SQLite v3 con tabla `requesters` (`UNIQUE(normalized_name)`) y clave foránea `requests.requester_id` con `ON DELETE RESTRICT`.
+- Migración de base de datos determinista v2 -> v3 (`MigrationV3`), consolidando solicitantes equivalentes según orden histórico y preservando todos los pedidos y renglones (`request_items`).
 - Normalizados a UTC todos los timestamps de dominio en `Request` y `Publication`, garantizando `isUtc == true` y eliminando el uso implícito de `DateTime.now()` dentro de las entidades (Fase 2.4.1).
 - Exigidos timestamps explícitos (`createdAt`, `updatedAt`) en los factories de `Request` y `Publication` (incluyendo `Publication.quickDraft`).
 - Exigido `updatedAt` explícito en las 5 operaciones de mutación de negocio de `Request` (`addItem`, `removeItem`, `replaceItemPublication`, `updateItemQuantityRequested`, `updateItemQuantityFulfilled`).
@@ -54,6 +60,11 @@ El proyecto utiliza versionamiento:
 - Eliminados los fallbacks a `DateTime.now()` en la rehidratación de `RequestMapper` y `PublicationMapper`, lanzando `FormatException` ante datos temporales nulos o inválidos.
 - Eliminados workarounds redundantes de `updatedAt: request.updatedAt` en `RequestLocalDataSourceImpl` (`create`, `getAll`, `getById`).
 - Retirado tooling temporal de desarrollo y botones debug de datos demo en la pantalla de Publicaciones tras completar la validación de persistencia y cerrar formalmente la Fase 1.
+
+### Fixed
+
+- Corregido el orden alfabético del catálogo en SQLite para ignorar signos de puntuación iniciales (`¡`, `¿`, `"`, `'`, `(`, `[`) en los nombres de publicaciones sin alterar el texto almacenado ni mostrado.
+- Corregido overflow vertical en la pantalla de Publicaciones al abrir el teclado durante una búsqueda.
 
 
 ## [0.1.7] - 2026-08-30
