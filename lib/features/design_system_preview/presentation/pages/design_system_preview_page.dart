@@ -10,6 +10,7 @@ import 'package:request_manager_app/core/widgets/app_buttons.dart';
 import 'package:request_manager_app/core/widgets/app_fields.dart';
 import 'package:request_manager_app/core/widgets/app_states.dart';
 import 'package:request_manager_app/features/publications/presentation/pages/publications_page.dart';
+import 'package:request_manager_app/features/requests/presentation/pages/new_request_page.dart';
 
 class DesignSystemPreviewPage extends StatefulWidget {
   const DesignSystemPreviewPage({super.key});
@@ -337,6 +338,18 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
               Expanded(
                 child: Text('Listado de Pedidos',
                     style: AppTypography.titleSection),
+              ),
+              AppPrimaryButton(
+                key: const Key('btn_nuevo_pedido'),
+                text: 'Nuevo Pedido',
+                icon: Icons.add_rounded,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => NewRequestPage(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
