@@ -77,31 +77,32 @@ class Publication {
   }
 
   /// Factory constructor specifically for quick drafts created from requests.
-  /// Requires description to be present (non-empty).
+  /// Sets [code] to null (ensuring status is [PublicationStatus.draft]).
+  /// [name] is required and must not be blank.
+  /// [description] is optional; empty or whitespace-only descriptions are normalized to null.
+  /// [type], [size], and [version] are optional with their standard defaults.
   ///
   /// Timestamps [createdAt] and [updatedAt] are required and normalized to UTC.
   factory Publication.quickDraft({
     required String name,
-    required String description,
+    String? description,
+    String? type,
+    TriStateValue<String> size = const TriStateValue.sinDefinir(),
+    TriStateValue<String> version = const TriStateValue.sinDefinir(),
     int? id,
+    bool isActive = true,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) {
-    final trimmedDescription = description.trim();
-    if (trimmedDescription.isEmpty) {
-      throw ArgumentError(
-          'La descripción es obligatoria para un borrador rápido.');
-    }
-
     return Publication(
       id: id,
       code: null,
       name: name,
-      description: trimmedDescription,
-      type: null,
-      size: const TriStateValue.sinDefinir(),
-      version: const TriStateValue.sinDefinir(),
-      isActive: true,
+      description: description,
+      type: type,
+      size: size,
+      version: version,
+      isActive: isActive,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

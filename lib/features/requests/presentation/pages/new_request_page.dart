@@ -19,11 +19,13 @@ import '../../../requesters/domain/requester.dart';
 import '../../../requesters/domain/requester_repository.dart';
 import '../../../requesters/domain/services/requester_duplicate_checker.dart';
 import '../../../requesters/domain/services/requester_name_cleaner.dart';
+import '../../../publications/domain/services/publication_duplicate_checker.dart';
 import '../../data/repositories/request_repository_impl.dart';
 import '../../domain/request.dart';
 import '../../domain/request_repository.dart';
 import '../../domain/usecases/add_publication_to_request_use_case.dart';
 import '../../domain/usecases/create_request_use_case.dart';
+import '../widgets/quick_draft_dialog.dart';
 
 class NewRequestPage extends StatefulWidget {
   final PublicationRepository publicationRepository;
@@ -33,6 +35,7 @@ class NewRequestPage extends StatefulWidget {
   final RequestRepository? requestRepository;
   final RequesterRepository? requesterRepository;
   final RequesterDuplicateChecker? duplicateChecker;
+  final PublicationDuplicateChecker? publicationDuplicateChecker;
   final AppClock clock;
 
   NewRequestPage({
@@ -44,6 +47,7 @@ class NewRequestPage extends StatefulWidget {
     RequestRepository? requestRepository,
     RequesterRepository? requesterRepository,
     this.duplicateChecker,
+    this.publicationDuplicateChecker,
     AppClock? clock,
   })  : publicationRepository =
             publicationRepository ?? PublicationRepositoryImpl(),
@@ -61,6 +65,7 @@ class NewRequestPageState extends State<NewRequestPage> {
   late final CreateRequestUseCase _createRequestUseCase;
   late final RequesterRepository _requesterRepository;
   late final RequesterDuplicateChecker _duplicateChecker;
+  late final PublicationDuplicateChecker _publicationDuplicateChecker;
   late final AppClock _clock;
 
   final TextEditingController _requesterSearchController =
@@ -112,6 +117,8 @@ class NewRequestPageState extends State<NewRequestPage> {
         widget.requesterRepository ?? RequesterRepositoryImpl();
     _duplicateChecker = widget.duplicateChecker ??
         RequesterDuplicateChecker(_requesterRepository);
+    _publicationDuplicateChecker = widget.publicationDuplicateChecker ??
+        PublicationDuplicateChecker(widget.publicationRepository);
   }
 
   @override
@@ -383,6 +390,26 @@ class NewRequestPageState extends State<NewRequestPage> {
       _searchController.clear();
       _quantityController.text = '1';
     });
+  }
+
+  Future<void> _openQuickDraftDialog(String initialName) async {
+    final result = await showDialog<Publication>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => QuickDraftDialog(
+        initialName: initialName,
+        publicationRepository: widget.publicationRepository,
+        duplicateChecker: _publicationDuplicateChecker,
+        clock: _clock,
+      ),
+    );
+
+    if (result != null && mounted) {
+      _selectPublication(result);
+      if (result.id != null) {
+        _publicationCache[result.id!] = result;
+      }
+    }
   }
 
   void _clearSelection() {
@@ -708,13 +735,29 @@ class NewRequestPageState extends State<NewRequestPage> {
 
     final query = _searchController.text.trim();
     if (query.isNotEmpty && _searchResults.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: AppSpacing.pAllMd,
         child: Center(
-          child: Text(
-            'No se encontraron publicaciones activas con el criterio ingresado',
-            style: AppTypography.bodySecondary,
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'No se encontraron publicaciones activas con el criterio ingresado',
+                style: AppTypography.bodySecondary,
+                textAlign: TextAlign.center,
+              ),
+              AppSpacing.vSpacerSm,
+              OutlinedButton.icon(
+                key: const Key('create_quick_draft_button'),
+                icon: const Icon(Icons.add_circle_outline_rounded,
+                    color: AppColors.primary),
+                label: const Text(
+                  '+ Crear publicación en borrador',
+                  style: TextStyle(color: AppColors.primary),
+                ),
+                onPressed: () => _openQuickDraftDialog(query),
+              ),
+            ],
           ),
         ),
       );

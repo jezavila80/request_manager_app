@@ -220,50 +220,113 @@ void main() {
       expect(modified.createdAt, equals(tCreatedAt));
     });
 
-    test(
-        'Regla especial de Draft rápido (quickDraft) con descripción obligatoria y timestamps UTC',
-        () {
+    group('Reglas de Draft rápido (quickDraft)', () {
       final draftCreatedAtLocal = DateTime(2026, 8, 21, 9, 30);
       final draftUpdatedAtLocal = DateTime(2026, 8, 21, 9, 30);
 
-      // Caso exitoso
-      final draft = Publication.quickDraft(
-        name: 'Biblia',
-        description: 'Biblia Grande Version Lujo de letra grande...',
-        createdAt: draftCreatedAtLocal,
-        updatedAt: draftUpdatedAtLocal,
-      );
+      test('Nombre obligatorio: lanza error si es vacío o espacios', () {
+        expect(
+          () => Publication.quickDraft(
+            name: '',
+            createdAt: tCreatedAt,
+            updatedAt: tUpdatedAt,
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => Publication.quickDraft(
+            name: '   ',
+            createdAt: tCreatedAt,
+            updatedAt: tUpdatedAt,
+          ),
+          throwsArgumentError,
+        );
+      });
 
-      expect(draft.name, equals('Biblia'));
-      expect(draft.description,
-          equals('Biblia Grande Version Lujo de letra grande...'));
-      expect(draft.code, isNull);
-      expect(draft.type, isNull);
-      expect(draft.status, equals(PublicationStatus.draft));
-      expect(draft.createdAt.isUtc, isTrue);
-      expect(draft.updatedAt.isUtc, isTrue);
-      expect(draft.createdAt, equals(draftCreatedAtLocal.toUtc()));
-      expect(draft.updatedAt, equals(draftUpdatedAtLocal.toUtc()));
+      test('Descripción con contenido se preserva limpia (trimmed)', () {
+        final draft = Publication.quickDraft(
+          name: '  Biblia Especial  ',
+          description: '  Biblia Grande Versión Lujo con notas  ',
+          createdAt: draftCreatedAtLocal,
+          updatedAt: draftUpdatedAtLocal,
+        );
 
-      // Casos inválidos
-      expect(
-        () => Publication.quickDraft(
-          name: 'Biblia',
+        expect(draft.name, equals('Biblia Especial'));
+        expect(
+            draft.description, equals('Biblia Grande Versión Lujo con notas'));
+        expect(draft.code, isNull);
+        expect(draft.type, isNull);
+        expect(draft.status, equals(PublicationStatus.draft));
+        expect(draft.size.isSinDefinir, isTrue);
+        expect(draft.version.isSinDefinir, isTrue);
+        expect(draft.createdAt.isUtc, isTrue);
+        expect(draft.updatedAt.isUtc, isTrue);
+        expect(draft.createdAt, equals(draftCreatedAtLocal.toUtc()));
+        expect(draft.updatedAt, equals(draftUpdatedAtLocal.toUtc()));
+      });
+
+      test('Descripción ausente (null) se normaliza a null', () {
+        final draft = Publication.quickDraft(
+          name: 'Folleto Informativo',
+          description: null,
+          createdAt: tCreatedAt,
+          updatedAt: tUpdatedAt,
+        );
+
+        expect(draft.name, equals('Folleto Informativo'));
+        expect(draft.description, isNull);
+        expect(draft.code, isNull);
+        expect(draft.status, equals(PublicationStatus.draft));
+      });
+
+      test('Descripción vacía ("") se normaliza a null', () {
+        final draft = Publication.quickDraft(
+          name: 'Tratado Breve',
           description: '',
           createdAt: tCreatedAt,
           updatedAt: tUpdatedAt,
-        ),
-        throwsArgumentError,
-      );
-      expect(
-        () => Publication.quickDraft(
-          name: 'Biblia',
+        );
+
+        expect(draft.name, equals('Tratado Breve'));
+        expect(draft.description, isNull);
+        expect(draft.code, isNull);
+        expect(draft.status, equals(PublicationStatus.draft));
+      });
+
+      test('Descripción de solo espacios ("   ") se normaliza a null', () {
+        final draft = Publication.quickDraft(
+          name: 'Tratado Breve',
           description: '   ',
           createdAt: tCreatedAt,
           updatedAt: tUpdatedAt,
-        ),
-        throwsArgumentError,
-      );
+        );
+
+        expect(draft.name, equals('Tratado Breve'));
+        expect(draft.description, isNull);
+        expect(draft.code, isNull);
+        expect(draft.status, equals(PublicationStatus.draft));
+      });
+
+      test('Soporta type, size y version explícitos conservando status DRAFT',
+          () {
+        final draft = Publication.quickDraft(
+          name: 'Manual Operativo',
+          type: 'Manual',
+          description: 'Documento interno',
+          size: TriStateValue.conValor('Bolsillo'),
+          version: const TriStateValue<String>.noAplica(),
+          createdAt: tCreatedAt,
+          updatedAt: tUpdatedAt,
+        );
+
+        expect(draft.name, equals('Manual Operativo'));
+        expect(draft.type, equals('Manual'));
+        expect(draft.description, equals('Documento interno'));
+        expect(draft.size, equals(TriStateValue.conValor('Bolsillo')));
+        expect(draft.version, equals(const TriStateValue<String>.noAplica()));
+        expect(draft.code, isNull);
+        expect(draft.status, equals(PublicationStatus.draft));
+      });
     });
   });
 }

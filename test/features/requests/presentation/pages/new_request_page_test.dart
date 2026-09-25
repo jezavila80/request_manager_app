@@ -6,6 +6,7 @@ import 'package:request_manager_app/core/widgets/app_buttons.dart';
 import 'package:request_manager_app/core/widgets/app_status_badge.dart';
 import 'package:request_manager_app/features/design_system_preview/presentation/pages/design_system_preview_page.dart';
 import 'package:request_manager_app/features/publications/domain/publication.dart';
+import 'package:request_manager_app/features/publications/domain/publication_status.dart';
 import 'package:request_manager_app/features/publications/domain/publication_repository.dart';
 import 'package:request_manager_app/features/publications/domain/services/publication_catalog_search_service.dart';
 import 'package:request_manager_app/features/requesters/domain/requester.dart';
@@ -103,20 +104,45 @@ class MockPublicationRepository implements PublicationRepository {
     return nameResults;
   }
 
+  int _nextPubId = 100;
+  bool shouldThrowOnCreate = false;
+  final List<Publication> createdPublications = [];
+  List<Publication> activeByNameResults = [];
+
   @override
-  Future<Publication> create(Publication publication) async => publication;
+  Future<Publication> create(Publication publication) async {
+    if (shouldThrowOnCreate) throw Exception('DB error on create');
+    final saved = publication.copyWith(id: publication.id ?? _nextPubId++);
+    createdPublications.add(saved);
+    return saved;
+  }
 
   @override
   Future<List<Publication>> getAll() async => activePublications;
 
   @override
-  Future<Publication?> getById(int id) async => null;
+  Future<Publication?> getById(int id) async {
+    for (final p in [...activePublications, ...createdPublications]) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
 
   @override
-  Future<Publication?> findByExactCode(String code) async => null;
+  Future<Publication?> findByExactCode(String code) async {
+    for (final p in [...activePublications, ...createdPublications]) {
+      if (p.code?.toLowerCase() == code.toLowerCase()) return p;
+    }
+    return null;
+  }
 
   @override
-  Future<List<Publication>> findActiveByName(String name) async => [];
+  Future<List<Publication>> findActiveByName(String name) async {
+    if (activeByNameResults.isNotEmpty) return activeByNameResults;
+    return activePublications
+        .where((p) => p.name.trim().toLowerCase() == name.trim().toLowerCase())
+        .toList();
+  }
 }
 
 class MockRequestRepository implements RequestRepository {
@@ -1215,6 +1241,435 @@ void main() {
       expect(created.name, equals('José Peña'));
       expect(created.normalizedName, equals('jose peña'));
       expect(find.text('José Peña'), findsOneWidget);
+    });
+  });
+
+  group('NewRequestPage — Quick Draft Creation Tests (Fase 2.7)', () {
+    testWidgets('1. Query vacía no ofrece crear Draft', (tester) async {
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      expect(find.byKey(const Key('create_quick_draft_button')), findsNothing);
+    });
+
+    testWidgets(
+        '2. Búsqueda con resultados muestra resultados normales y no muestra botón de borrador',
+        (tester) async {
+      pubRepo.codeResults = [pubA];
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'nwtls');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.byKey(Key('search_result_item_${pubA.id}')), findsOneWidget);
+      expect(find.byKey(const Key('create_quick_draft_button')), findsNothing);
+    });
+
+    testWidgets(
+        '3. Búsqueda sin resultados ofrece crear publicación en borrador',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'Inexistente');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(
+          find.byKey(const Key('create_quick_draft_button')), findsOneWidget);
+      expect(find.text('+ Crear publicación en borrador'), findsOneWidget);
+    });
+
+    testWidgets('4. Abrir Quick Draft precarga el nombre desde la búsqueda',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('search_publication_field')),
+          'Folleto Especial');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_draft_dialog')), findsOneWidget);
+      final nameField = tester.widget<TextFormField>(find.descendant(
+        of: find.byKey(const Key('quick_draft_name_field')),
+        matching: find.byType(TextFormField),
+      ));
+      expect(nameField.controller?.text, equals('Folleto Especial'));
+    });
+
+    testWidgets(
+        '5. Nombre inválido (vacío o espacios) no persiste y muestra error de validación',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'algo');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.descendant(
+            of: find.byKey(const Key('quick_draft_name_field')),
+            matching: find.byType(TextFormField),
+          ),
+          '   ');
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pump();
+
+      expect(find.text('El nombre de la publicación no puede estar vacío.'),
+          findsOneWidget);
+      expect(pubRepo.createdPublications, isEmpty);
+    });
+
+    testWidgets(
+        '6-10. Crear Draft válido persiste en repo con ID, code null, status DRAFT y timestamps UTC',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'Folleto Nuevo');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.descendant(
+            of: find.byKey(const Key('quick_draft_type_field')),
+            matching: find.byType(TextFormField),
+          ),
+          'Folleto');
+      await tester.enterText(
+          find.descendant(
+            of: find.byKey(const Key('quick_draft_description_field')),
+            matching: find.byType(TextFormField),
+          ),
+          'Descripción de prueba');
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      expect(pubRepo.createdPublications.length, equals(1));
+      final created = pubRepo.createdPublications.first;
+
+      expect(created.id, isNotNull);
+      expect(created.id, greaterThan(0));
+      expect(created.code, isNull);
+      expect(created.status, equals(PublicationStatus.draft));
+      expect(created.createdAt, equals(fixedTime));
+      expect(created.updatedAt, equals(fixedTime));
+      expect(created.createdAt.isUtc, isTrue);
+      expect(created.updatedAt.isUtc, isTrue);
+    });
+
+    testWidgets(
+        '11-14. Tras creación modal cierra, Draft queda seleccionado con cantidad 1 y sin agregarse automáticamente',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('search_publication_field')),
+          'Revista Especial');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_draft_dialog')), findsNothing);
+
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.selectedPublication, isNotNull);
+      expect(state.selectedPublication!.name, equals('Revista Especial'));
+      expect(
+          find.byKey(const Key('selected_publication_card')), findsOneWidget);
+
+      final qtyField = tester.widget<TextFormField>(find.descendant(
+        of: find.byKey(const Key('quantity_field')),
+        matching: find.byType(TextFormField),
+      ));
+      expect(qtyField.controller?.text, equals('1'));
+
+      expect(state.currentRequest, isNull);
+    });
+
+    testWidgets(
+        '15-16. Al pulsar Agregar añade RequestItem y al guardar pedido referencia el publicationId persistido',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+      requesterRepo.requesters = [
+        Requester(
+          id: 1,
+          name: 'Juan Perez',
+          normalizedName: 'juan perez',
+          isActive: true,
+          createdAt: fixedTime,
+          updatedAt: fixedTime,
+        ),
+      ];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_requester_field')), 'Juan');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tapVisible(
+          tester, find.byKey(const Key('requester_search_result_1')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('search_publication_field')),
+          'Manual Operativo');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      final createdPub = pubRepo.createdPublications.first;
+
+      await tapVisible(tester, find.byKey(const Key('add_publication_button')));
+      await tester.pumpAndSettle();
+
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.currentRequest, isNotNull);
+      expect(state.currentRequest!.items.length, equals(1));
+      expect(state.currentRequest!.items.first.publicationId,
+          equals(createdPub.id));
+
+      await tapVisible(tester, find.byKey(const Key('save_request_button')));
+      await tester.pumpAndSettle();
+
+      expect(reqRepo.createdRequests.length, equals(1));
+      final savedReq = reqRepo.createdRequests.first;
+      expect(savedReq.items.first.publicationId, equals(createdPub.id));
+    });
+
+    testWidgets(
+        '17. possibleDuplicate muestra diálogo de advertencia con candidatos',
+        (tester) async {
+      final existingCandidate = createTestPublication(
+        id: 77,
+        name: 'Tratado Paz',
+        type: 'Tratado',
+      );
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+      pubRepo.activePublications = [existingCandidate];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'Tratado Paz');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+          find.byKey(const Key('possible_duplicate_dialog')), findsOneWidget);
+      expect(find.text('¿Es alguna de estas publicaciones?'), findsOneWidget);
+      expect(find.byKey(Key('duplicate_match_item_${existingCandidate.id}')),
+          findsOneWidget);
+    });
+
+    testWidgets(
+        '18-19. Elegir existente no crea nuevo Draft y deja seleccionada la existente',
+        (tester) async {
+      final existingCandidate = createTestPublication(
+        id: 88,
+        name: 'Tratado Vida',
+        type: 'Tratado',
+      );
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+      pubRepo.activePublications = [existingCandidate];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'Tratado Vida');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find
+          .byKey(Key('select_existing_pub_${existingCandidate.id}_button')));
+      await tester.pumpAndSettle();
+
+      expect(pubRepo.createdPublications, isEmpty);
+
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.selectedPublication?.id, equals(existingCandidate.id));
+      expect(state.selectedPublication?.name, equals(existingCandidate.name));
+    });
+
+    testWidgets(
+        '20-21. Confirmar crear de todos modos persiste nuevo Draft sin alterar publicación existente',
+        (tester) async {
+      final existingCandidate = createTestPublication(
+        id: 99,
+        name: 'Tratado Esperanza',
+        type: 'Tratado',
+      );
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+      pubRepo.activePublications = [existingCandidate];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('search_publication_field')),
+          'Tratado Esperanza');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('confirm_create_anyway_button')));
+      await tester.pumpAndSettle();
+
+      expect(pubRepo.createdPublications.length, equals(1));
+      final newDraft = pubRepo.createdPublications.first;
+      expect(newDraft.name, equals('Tratado Esperanza'));
+      expect(newDraft.id, isNot(equals(existingCandidate.id)));
+
+      final existingInRepo =
+          pubRepo.activePublications.firstWhere((p) => p.id == 99);
+      expect(existingInRepo.name, equals('Tratado Esperanza'));
+      expect(existingInRepo.id, equals(99));
+
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.selectedPublication?.id, equals(newDraft.id));
+    });
+
+    testWidgets('22. Cancelar Quick Draft no persiste nada y cierra modal',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('search_publication_field')),
+          'Borrador Cancelar');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_cancel_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_draft_dialog')), findsNothing);
+      expect(pubRepo.createdPublications, isEmpty);
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.selectedPublication, isNull);
+    });
+
+    testWidgets(
+        '23-24. Error de persistencia muestra mensaje amigable, no selecciona publicación y permite reintentar',
+        (tester) async {
+      pubRepo.codeResults = [];
+      pubRepo.nameResults = [];
+      pubRepo.shouldThrowOnCreate = true;
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pump();
+
+      await tester.enterText(
+          find.byKey(const Key('search_publication_field')), 'Borrador Error');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      await tapVisible(
+          tester, find.byKey(const Key('create_quick_draft_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_draft_error_banner')), findsOneWidget);
+      expect(
+          find.text(
+              'Error al guardar la publicación en borrador. Intente nuevamente.'),
+          findsOneWidget);
+      final state =
+          tester.state<NewRequestPageState>(find.byType(NewRequestPage));
+      expect(state.selectedPublication, isNull);
+
+      pubRepo.shouldThrowOnCreate = false;
+      await tester.tap(find.byKey(const Key('quick_draft_submit_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('quick_draft_dialog')), findsNothing);
+      expect(pubRepo.createdPublications.length, equals(1));
+      expect(state.selectedPublication?.name, equals('Borrador Error'));
     });
   });
 }
