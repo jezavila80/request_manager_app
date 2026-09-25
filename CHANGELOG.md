@@ -8,6 +8,24 @@ El proyecto utiliza versionamiento:
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-25
+
+### Added
+
+- Creación y persistencia inmediata de publicaciones en borrador (`Quick Draft`) desde la pantalla de Nuevo Pedido (`NewRequestPage`) cuando una búsqueda no arroja resultados (Fase 2.7).
+- Diálogo modal compacto y scrollable (`QuickDraftDialog`) con formulario rápido: Nombre obligatorio (precargado desde la búsqueda), Tipo opcional, Descripción opcional/recomendada, Tamaño y Versión modelados fielmente con `TriStateValue`.
+- Exclusión deliberada del campo Código en la captura rápida, garantizando que toda publicación creada mediante este flujo nazca con estado `DRAFT`.
+- Unificación del constructor factory `Publication.quickDraft(...)` en la capa de dominio como única vía para la construcción de borradores rápidos, con normalización automática de descripción ausente, vacía o compuesta únicamente por espacios en blanco a `null`.
+- Prevención de duplicados reutilizando la heurística existente de `PublicationDuplicateChecker`: ante posibles coincidencias (`PossibleDuplicateResult`), presenta un diálogo de advertencia permitiendo seleccionar la publicación existente (sin crear borrador) o confirmar la creación de uno nuevo sin alterar publicaciones existentes ni realizar auto-merge.
+- Persistencia inmediata de la nueva `Publication` en `PublicationRepository` para obtener su `publication.id` real, permitiendo su referencia en los `RequestItem`.
+- Selección automática de la publicación en `NewRequestPage` con cantidad inicial = 1, sin agregarla automáticamente al pedido para que el usuario confirme con el botón "Agregar". El pedido completo permanece en memoria hasta su guardado final.
+- Cobertura de pruebas ampliada con 18 nuevas pruebas de dominio y de widgets alcanzando 370 tests productivos (370/370 passing).
+
+### Changed
+
+- Adaptado `Publication.quickDraft(...)` para admitir descripción opcional y campos de metadatos (`type`, `size`, `version`), preservando el cálculo automático de `PublicationStatus.draft` y timestamps en UTC provistos por `AppClock`.
+- El esquema SQLite se mantiene estrictamente en la versión 3 (sin migraciones de base de datos adicionales).
+
 ## [0.1.8] - 2026-09-23
 
 ### Added

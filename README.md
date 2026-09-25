@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.8+10**
+**0.1.9+11**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -19,6 +19,7 @@ Estado actual:
 - Flujo de creación de pedidos en memoria con timestamps UTC (AppClock).
 - Búsqueda y autocompletado de publicaciones con debounce y prevención de repetidas (Fase 2.6).
 - Catálogo y selección persistente de solicitantes con normalización e identificación única (Fase 2.6.1).
+- Creación y persistencia inmediata de Draft Publications desde Nuevo Pedido (Fase 2.7).
 - Integración end-to-end de NewRequestPage con guardado atómico transaccional de pedidos.
 
 ---
@@ -585,7 +586,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1, 2.5, 2.6 y 2.6.1 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1, 2.5, 2.6, 2.6.1 y 2.7 completadas)
 
 ### Objetivo
 
@@ -612,7 +613,7 @@ Un pedido:
 * [x] **2.5 Agregar publicaciones existentes a un nuevo pedido (`AddPublicationToRequestUseCase`, `AddPublicationResult`, construcción del pedido en memoria, múltiples publicaciones, cantidades solicitadas, detección de repetidas, acumulación confirmada, `AppClock` para timestamps y persistencia completa mediante `CreateRequestUseCase`).**
 * [x] **2.6 Búsqueda / autocompletado de publicaciones para el pedido (`NewRequestPage`, búsqueda combinada código/nombre, debounce 300 ms, stale-result protection, selección, cantidad, acumulación confirmada 2 + 3 = 5, resumen y guardado end-to-end).**
 * [x] **2.6.1 Catálogo y selección de solicitantes (`Requester`, normalización, SQLite v3, migración v2→v3, autocomplete, detección de duplicados exactos y advertencia de posibles coincidencias).**
-* [ ] **2.7 Creación de Draft Publication desde pedido.**
+* [x] **2.7 Creación de Draft Publication desde pedido (`QuickDraftDialog`, creación rápida al no encontrar resultados en búsqueda, nombre obligatorio, código sin capturar, descripción/tipo/tamaño/versión opcionales, `Publication.quickDraft()` unificado con normalización, prevención de duplicados con `PublicationDuplicateChecker`, selección inmediata y retención del pedido en memoria).**
 * [ ] **2.8 Lista básica de pedidos (UI).**
 * [ ] **2.9 Detalle de pedido (UI).**
 * [ ] **2.10 Validación del flujo y persistencia real de pedidos.**
@@ -652,6 +653,15 @@ Un pedido:
   * Nueva tabla `requesters` con restricción `UNIQUE(normalized_name)`.
   * Evolución de la tabla `requests`: se elimina el texto libre `requested_by TEXT` y se adopta `requester_id INTEGER NOT NULL REFERENCES requesters(id) ON DELETE RESTRICT`.
   * Migración determinista (`ORDER BY id ASC`): procesa pedidos históricos, normaliza `requested_by`, crea/reutiliza el solicitante (conservando la primera representación visible encontrada), asigna `requester_id` y preserva íntegramente los datos y renglones (`request_items`).
+
+#### Fase 2.7 — Creación de Draft Publication desde pedido
+* **`QuickDraftDialog`**: Modal interactivo y scrollable desplegado cuando la búsqueda de publicaciones no produce resultados (`+ Crear publicación en borrador`).
+* **Campos del borrador**: Nombre * (obligatorio, inicializado con el texto buscado), Tipo, Descripción (opcional/recomendada), Tamaño (`TriStateValue`) y Versión (`TriStateValue`). Código fuera de captura rápida para que el estado resultante sea `DRAFT`.
+* **Unificación de dominio (`Publication.quickDraft`)**: Factory único en la entidad `Publication` que normaliza descripciones vacías o de solo espacios a `null`, garantizando `code: null`, estado `PublicationStatus.draft` y timestamps en UTC provistos por `AppClock`.
+* **Prevención de duplicados (`PublicationDuplicateChecker`)**: Evaluación previa al guardado. Ante `PossibleDuplicateResult`, muestra un diálogo de advertencia con los candidatos encontrados; el usuario puede elegir entre reutilizar la publicación existente (sin crear borrador) o confirmar la creación de uno nuevo sin alterar la publicación existente ni realizar auto-merge.
+* **Persistencia inmediata**: El borrador se persiste directamente en `PublicationRepository` para obtener su `publication.id` real, permitiendo su referencia en los `RequestItem`.
+* **Integración con Nuevo Pedido**: Tras la creación o selección, la publicación queda seleccionada en `NewRequestPage` con cantidad inicial = 1, sin agregar automáticamente el ítem al pedido. El `Request` permanece en memoria hasta que el usuario decida guardarlo.
+* **Persistencia SQLite**: Mantiene estrictamente el esquema v3 sin migraciones adicionales.
 
 ---
 
