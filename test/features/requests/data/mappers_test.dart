@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/core/database/database_constants.dart';
 import 'package:request_manager_app/features/requests/data/mappers/request_item_mapper.dart';
+import 'package:request_manager_app/features/requests/data/mappers/request_list_item_mapper.dart';
 import 'package:request_manager_app/features/requests/data/mappers/request_mapper.dart';
 import 'package:request_manager_app/features/requests/domain/request.dart';
+import 'package:request_manager_app/features/requests/domain/request_fulfillment_status.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
 
 void main() {
@@ -170,6 +172,88 @@ void main() {
         () => RequestMapper.fromMap(mapEmptyCreatedAt),
         throwsA(isA<FormatException>()),
       );
+    });
+  });
+
+  group('RequestListItemMapper Unit Tests', () {
+    test('reconstructs valid RequestListItem from query map', () {
+      final map = {
+        RequestListItemMapper.columnRequestId: 10,
+        RequestListItemMapper.columnRequesterId: 3,
+        RequestListItemMapper.columnRequesterName: 'María Soto',
+        RequestListItemMapper.columnCreatedAt: '2026-09-24T10:00:00.000Z',
+        RequestListItemMapper.columnPublicationCount: 4,
+        RequestListItemMapper.columnQuantityRequested: 8,
+        RequestListItemMapper.columnQuantityFulfilled: 3,
+      };
+
+      final item = RequestListItemMapper.fromMap(map);
+
+      expect(item.requestId, equals(10));
+      expect(item.requesterId, equals(3));
+      expect(item.requesterName, equals('María Soto'));
+      expect(item.createdAt, equals(DateTime.utc(2026, 9, 24, 10, 0)));
+      expect(item.publicationCount, equals(4));
+      expect(item.quantityRequested, equals(8));
+      expect(item.quantityFulfilled, equals(3));
+      expect(item.fulfillmentStatus,
+          equals(RequestFulfillmentStatus.partiallyFulfilled));
+    });
+
+    test('defaults null counts and quantities to 0', () {
+      final map = {
+        RequestListItemMapper.columnRequestId: 12,
+        RequestListItemMapper.columnRequesterId: 5,
+        RequestListItemMapper.columnRequesterName: 'Juan Pérez',
+        RequestListItemMapper.columnCreatedAt: '2026-09-24T10:00:00.000Z',
+        RequestListItemMapper.columnPublicationCount: null,
+        RequestListItemMapper.columnQuantityRequested: null,
+        RequestListItemMapper.columnQuantityFulfilled: null,
+      };
+
+      final item = RequestListItemMapper.fromMap(map);
+
+      expect(item.publicationCount, equals(0));
+      expect(item.quantityRequested, equals(0));
+      expect(item.quantityFulfilled, equals(0));
+      expect(item.fulfillmentStatus, equals(RequestFulfillmentStatus.pending));
+    });
+
+    test('throws FormatException when required columns are missing', () {
+      final validMap = {
+        RequestListItemMapper.columnRequestId: 10,
+        RequestListItemMapper.columnRequesterId: 3,
+        RequestListItemMapper.columnRequesterName: 'María Soto',
+        RequestListItemMapper.columnCreatedAt: '2026-09-24T10:00:00.000Z',
+        RequestListItemMapper.columnPublicationCount: 1,
+        RequestListItemMapper.columnQuantityRequested: 2,
+        RequestListItemMapper.columnQuantityFulfilled: 1,
+      };
+
+      final noRequestId = Map<String, Object?>.from(validMap)
+        ..remove(RequestListItemMapper.columnRequestId);
+      expect(() => RequestListItemMapper.fromMap(noRequestId),
+          throwsFormatException);
+
+      final noRequesterId = Map<String, Object?>.from(validMap)
+        ..remove(RequestListItemMapper.columnRequesterId);
+      expect(() => RequestListItemMapper.fromMap(noRequesterId),
+          throwsFormatException);
+
+      final noRequesterName = Map<String, Object?>.from(validMap)
+        ..remove(RequestListItemMapper.columnRequesterName);
+      expect(() => RequestListItemMapper.fromMap(noRequesterName),
+          throwsFormatException);
+
+      final emptyRequesterName = Map<String, Object?>.from(validMap)
+        ..[RequestListItemMapper.columnRequesterName] = '   ';
+      expect(() => RequestListItemMapper.fromMap(emptyRequesterName),
+          throwsFormatException);
+
+      final noCreatedAt = Map<String, Object?>.from(validMap)
+        ..remove(RequestListItemMapper.columnCreatedAt);
+      expect(() => RequestListItemMapper.fromMap(noCreatedAt),
+          throwsFormatException);
     });
   });
 }

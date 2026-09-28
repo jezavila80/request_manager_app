@@ -4,6 +4,7 @@ import 'package:request_manager_app/features/requests/data/repositories/request_
 import 'package:request_manager_app/features/requests/domain/request.dart';
 import 'package:request_manager_app/features/requests/domain/request_exceptions.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
+import 'package:request_manager_app/features/requests/domain/request_list_item.dart';
 
 import '../../../helpers/test_request_factory.dart';
 
@@ -11,9 +12,11 @@ class FakeRequestLocalDataSource implements RequestLocalDataSource {
   Request? passedRequest;
   Request? responseToReturn;
   List<Request> allRequestsToReturn = [];
+  List<RequestListItem> requestListToReturn = [];
   Request? getByIdToReturn;
   int? passedGetByIdId;
   bool getAllCalled = false;
+  bool getRequestListCalled = false;
 
   @override
   Future<Request> create(Request request) async {
@@ -37,6 +40,12 @@ class FakeRequestLocalDataSource implements RequestLocalDataSource {
   Future<Request?> getById(int id) async {
     passedGetByIdId = id;
     return getByIdToReturn;
+  }
+
+  @override
+  Future<List<RequestListItem>> getRequestList() async {
+    getRequestListCalled = true;
+    return requestListToReturn;
   }
 }
 
@@ -156,6 +165,28 @@ void main() {
         throwsA(isA<ArgumentError>()),
       );
       expect(fakeDataSource.passedGetByIdId, isNull);
+    });
+
+    test(
+        'getRequestList delegates to RequestLocalDataSource and returns projection list',
+        () async {
+      final sampleList = [
+        RequestListItem(
+          requestId: 1,
+          requesterId: 2,
+          requesterName: 'María Soto',
+          createdAt: DateTime.utc(2026, 9, 24, 10, 0),
+          publicationCount: 2,
+          quantityRequested: 5,
+          quantityFulfilled: 3,
+        ),
+      ];
+      fakeDataSource.requestListToReturn = sampleList;
+
+      final result = await repository.getRequestList();
+
+      expect(fakeDataSource.getRequestListCalled, isTrue);
+      expect(result, equals(sampleList));
     });
   });
 }

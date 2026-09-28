@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../features/requests/domain/request_fulfillment_status.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
@@ -21,6 +22,29 @@ class AppStatusBadge extends StatelessWidget {
     required this.status,
     this.label,
   });
+
+  /// Factory constructor to map from [RequestFulfillmentStatus] to visual status badge.
+  factory AppStatusBadge.fromFulfillmentStatus(
+    RequestFulfillmentStatus fulfillmentStatus,
+  ) {
+    switch (fulfillmentStatus) {
+      case RequestFulfillmentStatus.pending:
+        return const AppStatusBadge(
+          status: AppStatus.pendiente,
+          label: 'PENDIENTE',
+        );
+      case RequestFulfillmentStatus.partiallyFulfilled:
+        return const AppStatusBadge(
+          status: AppStatus.parcialmenteSurtido,
+          label: 'PARCIAL',
+        );
+      case RequestFulfillmentStatus.fulfilled:
+        return const AppStatusBadge(
+          status: AppStatus.surtido,
+          label: 'COMPLETO',
+        );
+    }
+  }
 
   // Factory constructor for string mapping
   factory AppStatusBadge.fromString(String statusStr, {String? label}) {

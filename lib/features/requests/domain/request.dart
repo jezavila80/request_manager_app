@@ -94,25 +94,13 @@ class Request {
 
   /// Calculates the current fulfillment status of the request based on item quantities.
   ///
-  /// Decision for empty requests: returns [RequestFulfillmentStatus.pending] as a default baseline.
-  RequestFulfillmentStatus get fulfillmentStatus {
-    if (_items.isEmpty) {
-      return RequestFulfillmentStatus.pending;
-    }
-
-    final allFulfilled = _items
-        .every((item) => item.quantityFulfilled == item.quantityRequested);
-    if (allFulfilled) {
-      return RequestFulfillmentStatus.fulfilled;
-    }
-
-    final allPending = _items.every((item) => item.quantityFulfilled == 0);
-    if (allPending) {
-      return RequestFulfillmentStatus.pending;
-    }
-
-    return RequestFulfillmentStatus.partiallyFulfilled;
-  }
+  /// Reuses the canonical [calculateRequestFulfillmentStatus] domain rule.
+  RequestFulfillmentStatus get fulfillmentStatus =>
+      calculateRequestFulfillmentStatus(
+        itemCount: _items.length,
+        quantityRequested: totalQuantityRequested,
+        quantityFulfilled: totalQuantityFulfilled,
+      );
 
   /// Evaluates whether all items in this request refer to existing [Publication]s with
   /// status [PublicationStatus.complete].

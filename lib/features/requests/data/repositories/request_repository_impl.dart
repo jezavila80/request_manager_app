@@ -1,5 +1,6 @@
 import '../../domain/request.dart';
 import '../../domain/request_exceptions.dart';
+import '../../domain/request_list_item.dart';
 import '../../domain/request_repository.dart';
 import '../datasources/request_local_data_source.dart';
 
@@ -41,5 +42,10 @@ class RequestRepositoryImpl implements RequestRepository {
       throw ArgumentError('El ID de la solicitud debe ser mayor a 0.');
     }
     return await _localDataSource.getById(id);
+  }
+
+  @override
+  Future<List<RequestListItem>> getRequestList() async {
+    return await _localDataSource.getRequestList();
   }
 }

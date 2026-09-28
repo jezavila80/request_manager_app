@@ -83,5 +83,21 @@ void main() {
       expect(local.isUtc, isFalse);
       expect(local.isAtSameMomentAs(utc), isTrue);
     });
+
+    test('formatShortDate formats date correctly in Spanish', () {
+      final date = DateTime(2026, 9, 24, 15, 0);
+      final formatted = AppDateTime.formatShortDate(date);
+
+      expect(formatted, equals('24 sep 2026'));
+    });
+
+    test('formatShortDate converts UTC DateTime to local before formatting',
+        () {
+      final local = DateTime(2026, 1, 15, 12, 0);
+      final utc = local.toUtc();
+      final formatted = AppDateTime.formatShortDate(utc);
+
+      expect(formatted, equals('15 ene 2026'));
+    });
   });
 }

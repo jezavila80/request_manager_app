@@ -13,7 +13,9 @@ import 'package:request_manager_app/features/requesters/domain/requester.dart';
 import 'package:request_manager_app/features/requesters/domain/requester_repository.dart';
 import 'package:request_manager_app/features/requesters/domain/services/requester_name_normalizer.dart';
 import 'package:request_manager_app/features/requests/domain/request.dart';
+import 'package:request_manager_app/features/requests/domain/request_list_item.dart';
 import 'package:request_manager_app/features/requests/domain/request_repository.dart';
+
 import 'package:request_manager_app/features/requests/domain/usecases/add_publication_to_request_use_case.dart';
 import 'package:request_manager_app/features/requests/domain/usecases/create_request_use_case.dart';
 import 'package:request_manager_app/features/requests/presentation/pages/new_request_page.dart';
@@ -163,6 +165,9 @@ class MockRequestRepository implements RequestRepository {
   @override
   Future<Request?> getById(int id) async =>
       createdRequests.firstWhere((r) => r.id == id);
+
+  @override
+  Future<List<RequestListItem>> getRequestList() async => [];
 }
 
 void main() {

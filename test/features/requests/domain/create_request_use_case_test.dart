@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:request_manager_app/features/requests/domain/request.dart';
 import 'package:request_manager_app/features/requests/domain/request_exceptions.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
+import 'package:request_manager_app/features/requests/domain/request_list_item.dart';
 import 'package:request_manager_app/features/requests/domain/request_repository.dart';
 import 'package:request_manager_app/features/requests/domain/usecases/create_request_use_case.dart';
 
@@ -24,6 +25,9 @@ class FakeRequestRepository implements RequestRepository {
 
   @override
   Future<Request?> getById(int id) async => null;
+
+  @override
+  Future<List<RequestListItem>> getRequestList() async => [];
 }
 
 void main() {

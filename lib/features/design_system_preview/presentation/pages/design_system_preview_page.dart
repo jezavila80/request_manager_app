@@ -10,10 +10,16 @@ import 'package:request_manager_app/core/widgets/app_buttons.dart';
 import 'package:request_manager_app/core/widgets/app_fields.dart';
 import 'package:request_manager_app/core/widgets/app_states.dart';
 import 'package:request_manager_app/features/publications/presentation/pages/publications_page.dart';
-import 'package:request_manager_app/features/requests/presentation/pages/new_request_page.dart';
+import 'package:request_manager_app/features/requests/domain/request_repository.dart';
+import 'package:request_manager_app/features/requests/presentation/pages/requests_page.dart';
 
 class DesignSystemPreviewPage extends StatefulWidget {
-  const DesignSystemPreviewPage({super.key});
+  final RequestRepository? requestRepository;
+
+  const DesignSystemPreviewPage({
+    super.key,
+    this.requestRepository,
+  });
 
   @override
   State<DesignSystemPreviewPage> createState() =>
@@ -23,7 +29,6 @@ class DesignSystemPreviewPage extends StatefulWidget {
 class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
   int _currentTab = 0;
   String _simulatedState = 'normal'; // 'normal', 'loading', 'empty', 'error'
-  String? _selectedOrderId;
 
   // Recepciones Form State
   final _recepcionCodigoController = TextEditingController(text: 'RL-12');
@@ -147,7 +152,7 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
       case 1:
         return PublicationsPage();
       case 2:
-        return _buildPedidosTab();
+        return RequestsPage(repository: widget.requestRepository);
       case 3:
         return _buildRecepcionesTab();
       case 4:
@@ -267,7 +272,6 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
                 onPressed: () {
                   setState(() {
                     _currentTab = 2;
-                    _selectedOrderId = null;
                   });
                 },
                 child: const Text('Ver todos'),
@@ -285,7 +289,6 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
               return AppCard(
                 onTap: () {
                   setState(() {
-                    _selectedOrderId = pedido['id'];
                     _currentTab = 2; // Switch to Pedidos tab
                   });
                 },
@@ -316,248 +319,6 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
                 ),
               );
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // TAB 1: PEDIDOS (LISTADO Y DETALLE)
-  Widget _buildPedidosTab() {
-    if (_selectedOrderId != null) {
-      return _buildPedidoDetalle(_selectedOrderId!);
-    }
-
-    return Padding(
-      padding: AppSpacing.pAllMd,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Listado de Pedidos',
-                    style: AppTypography.titleSection),
-              ),
-              AppPrimaryButton(
-                key: const Key('btn_nuevo_pedido'),
-                text: 'Nuevo Pedido',
-                icon: Icons.add_rounded,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => NewRequestPage(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          AppSpacing.vSpacerMd,
-          // Search Field mock
-          const AppFormField(
-            labelText: 'Buscar pedido',
-            hintText: 'Buscar por solicitante o código...',
-            prefixIcon: Icons.search_rounded,
-          ),
-          AppSpacing.vSpacerLg,
-          Expanded(
-            child: ListView.separated(
-              itemCount: _mockPedidos.length,
-              separatorBuilder: (context, index) => AppSpacing.vSpacerSm,
-              itemBuilder: (context, index) {
-                final pedido = _mockPedidos[index];
-                return AppCard(
-                  onTap: () {
-                    setState(() {
-                      _selectedOrderId = pedido['id'];
-                    });
-                  },
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('#${pedido['id']}',
-                                style: AppTypography.titleCard),
-                            AppSpacing.vSpacerXs,
-                            Text(pedido['solicitante'],
-                                style: AppTypography.bodyNormal),
-                            Text('Fecha: ${pedido['fecha']}',
-                                style: AppTypography.bodySecondary),
-                          ],
-                        ),
-                      ),
-                      AppStatusBadge.fromString(pedido['estado']),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // TAB 1 DETAIL: DETALLE DE PEDIDO
-  Widget _buildPedidoDetalle(String id) {
-    final pedido = _mockPedidos.firstWhere((p) => p['id'] == id);
-
-    return SingleChildScrollView(
-      padding: AppSpacing.pAllMd,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Navigation Back
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _selectedOrderId = null;
-              });
-            },
-            icon: const Icon(Icons.arrow_back_rounded, size: 16),
-            label: const Text('Volver al listado'),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              alignment: Alignment.centerLeft,
-            ),
-          ),
-          AppSpacing.vSpacerSm,
-
-          // Header Card
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Pedido #$id', style: AppTypography.titlePrimary),
-                    AppStatusBadge.fromString(pedido['estado']),
-                  ],
-                ),
-                AppSpacing.vSpacerMd,
-                const Divider(),
-                AppSpacing.vSpacerMd,
-                Text('Solicitante',
-                    style: AppTypography.bodySecondary
-                        .copyWith(fontWeight: FontWeight.w600)),
-                Text(pedido['solicitante'], style: AppTypography.bodyNormal),
-                AppSpacing.vSpacerMd,
-                Text('Fecha de Pedido',
-                    style: AppTypography.bodySecondary
-                        .copyWith(fontWeight: FontWeight.w600)),
-                Text(pedido['fecha'], style: AppTypography.bodyNormal),
-              ],
-            ),
-          ),
-          AppSpacing.vSpacerLg,
-
-          // Articles section
-          Text('Publicaciones Solicitadas', style: AppTypography.titleSection),
-          AppSpacing.vSpacerSm,
-
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: (pedido['articulos'] as List).length,
-            separatorBuilder: (context, index) => AppSpacing.vSpacerSm,
-            itemBuilder: (context, index) {
-              final art = pedido['articulos'][index];
-              return AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(art['codigo'],
-                                  style: AppTypography.titleCard
-                                      .copyWith(color: AppColors.primaryLight)),
-                              Text(art['nombre'],
-                                  style: AppTypography.titleCard),
-                            ],
-                          ),
-                        ),
-                        AppStatusBadge.fromString(art['estado']),
-                      ],
-                    ),
-                    AppSpacing.vSpacerMd,
-                    const Divider(),
-                    AppSpacing.vSpacerMd,
-                    // Quantities row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Solicitado',
-                                style: AppTypography.bodySecondary),
-                            Text('${art['solicitado']}',
-                                style: AppTypography.bodyNormal
-                                    .copyWith(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Surtido', style: AppTypography.bodySecondary),
-                            Text('${art['surtido']}',
-                                style: AppTypography.bodyNormal.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.success)),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Pendiente',
-                                style: AppTypography.bodySecondary),
-                            Text('${art['pendiente']}',
-                                style: AppTypography.bodyNormal.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: art['pendiente'] > 0
-                                        ? AppColors.warning
-                                        : AppColors.textSecondary)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          AppSpacing.vSpacerXl,
-
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: AppPrimaryButton(
-                  text: 'Entregar Material',
-                  icon: Icons.send_rounded,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'Simulando entrega de existencia local al pedido...'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -903,10 +664,6 @@ class _DesignSystemPreviewPageState extends State<DesignSystemPreviewPage> {
         onTap: (index) {
           setState(() {
             _currentTab = index;
-            // Clear order detail navigation when switching tabs
-            if (index != 2) {
-              _selectedOrderId = null;
-            }
           });
         },
         items: const [

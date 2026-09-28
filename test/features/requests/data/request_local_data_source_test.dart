@@ -7,6 +7,7 @@ import 'package:request_manager_app/features/requests/domain/request_exceptions.
 import 'package:request_manager_app/features/requests/domain/request_fulfillment_status.dart';
 import 'package:request_manager_app/features/requests/domain/request_item.dart';
 import 'package:request_manager_app/core/time/app_date_time.dart';
+
 import '../../../helpers/test_publication_factory.dart';
 import '../../../helpers/test_request_factory.dart';
 import 'package:sqflite/sqflite.dart';
@@ -1152,6 +1153,184 @@ void main() {
           () => dataSource.getAll(),
           throwsA(isA<RequestPersistenceException>()),
         );
+      });
+    });
+
+    group('getRequestList() Projection Integration Tests', () {
+      test(
+          'resolves requesterName, requesterId, counts publications, and sums quantityRequested & quantityFulfilled',
+          () async {
+        final mariaId = await insertSampleRequester(name: 'María Soto');
+        final pub1 =
+            await insertSamplePublication(code: 'P-1', name: 'Libro A');
+        final pub2 =
+            await insertSamplePublication(code: 'P-2', name: 'Libro B');
+
+        final req = await dataSource.create(createTestRequest(
+          requesterId: mariaId,
+          items: [
+            RequestItem(
+                publicationId: pub1,
+                quantityRequested: 5,
+                quantityFulfilled: 3),
+            RequestItem(
+                publicationId: pub2,
+                quantityRequested: 3,
+                quantityFulfilled: 0),
+          ],
+        ));
+
+        final list = await dataSource.getRequestList();
+        expect(list.length, equals(1));
+
+        final item = list.first;
+        expect(item.requestId, equals(req.id));
+        expect(item.requesterId, equals(mariaId));
+        expect(item.requesterName, equals('María Soto'));
+        expect(item.publicationCount, equals(2));
+        expect(item.quantityRequested, equals(8));
+        expect(item.quantityFulfilled, equals(3));
+        expect(item.fulfillmentStatus,
+            equals(RequestFulfillmentStatus.partiallyFulfilled));
+      });
+
+      test('preserves request without items with zeros from COALESCE',
+          () async {
+        final reqId = await insertSampleRequester(name: 'Juan Sin Items');
+        final nowStr = AppDateTime.toStorage(DateTime.utc(2026, 9, 20, 10, 0));
+
+        final id = await db.insert(DatabaseConstants.tableRequests, {
+          DatabaseConstants.columnRequesterId: reqId,
+          DatabaseConstants.columnNotes: 'Pedido sin items',
+          DatabaseConstants.columnCreatedAt: nowStr,
+          DatabaseConstants.columnUpdatedAt: nowStr,
+        });
+
+        final list = await dataSource.getRequestList();
+        final match = list.firstWhere((r) => r.requestId == id);
+
+        expect(match.requesterName, equals('Juan Sin Items'));
+        expect(match.publicationCount, equals(0));
+        expect(match.quantityRequested, equals(0));
+        expect(match.quantityFulfilled, equals(0));
+        expect(
+            match.fulfillmentStatus, equals(RequestFulfillmentStatus.pending));
+      });
+
+      test('orders results by createdAt DESC and tie-breaks by requestId DESC',
+          () async {
+        final pubId = await insertSamplePublication();
+        const reqId = 1;
+
+        // Req 1: older date
+        final r1 = await dataSource.create(createTestRequest(
+          requesterId: reqId,
+          createdAt: DateTime.utc(2026, 9, 10, 10, 0),
+          items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
+        ));
+
+        // Req 2: newer date
+        final r2 = await dataSource.create(createTestRequest(
+          requesterId: reqId,
+          createdAt: DateTime.utc(2026, 9, 20, 10, 0),
+          items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
+        ));
+
+        // Req 3: same newer date (inserted later -> higher id)
+        final r3 = await dataSource.create(createTestRequest(
+          requesterId: reqId,
+          createdAt: DateTime.utc(2026, 9, 20, 10, 0),
+          items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
+        ));
+
+        final list = await dataSource.getRequestList();
+        final ids = list.map((e) => e.requestId).toList();
+
+        expect(ids, equals([r3.id, r2.id, r1.id]));
+      });
+
+      test('handles multiple requests from the same requester cleanly',
+          () async {
+        final pub1 = await insertSamplePublication(code: 'PUB-A');
+        final pub2 = await insertSamplePublication(code: 'PUB-B');
+        final reqId = await insertSampleRequester(name: 'Comprador Frecuente');
+
+        final r1 = await dataSource.create(createTestRequest(
+          requesterId: reqId,
+          createdAt: DateTime.utc(2026, 9, 1, 10, 0),
+          items: [
+            RequestItem(
+                publicationId: pub1, quantityRequested: 2, quantityFulfilled: 2)
+          ],
+        ));
+
+        final r2 = await dataSource.create(createTestRequest(
+          requesterId: reqId,
+          createdAt: DateTime.utc(2026, 9, 2, 10, 0),
+          items: [
+            RequestItem(
+                publicationId: pub2, quantityRequested: 7, quantityFulfilled: 0)
+          ],
+        ));
+
+        final list = await dataSource.getRequestList();
+        expect(list.length, equals(2));
+
+        final itemR2 = list.firstWhere((e) => e.requestId == r2.id);
+        expect(itemR2.publicationCount, equals(1));
+        expect(itemR2.quantityRequested, equals(7));
+        expect(itemR2.quantityFulfilled, equals(0));
+        expect(
+            itemR2.fulfillmentStatus, equals(RequestFulfillmentStatus.pending));
+
+        final itemR1 = list.firstWhere((e) => e.requestId == r1.id);
+        expect(itemR1.publicationCount, equals(1));
+        expect(itemR1.quantityRequested, equals(2));
+        expect(itemR1.quantityFulfilled, equals(2));
+        expect(itemR1.fulfillmentStatus,
+            equals(RequestFulfillmentStatus.fulfilled));
+      });
+
+      test('does not duplicate rows due to JOIN when multiple items exist',
+          () async {
+        final p1 = await insertSamplePublication(code: 'K-1');
+        final p2 = await insertSamplePublication(code: 'K-2');
+        final p3 = await insertSamplePublication(code: 'K-3');
+        final p4 = await insertSamplePublication(code: 'K-4');
+
+        final r = await dataSource.create(createTestRequest(
+          requesterId: 1,
+          items: [
+            RequestItem(publicationId: p1, quantityRequested: 1),
+            RequestItem(publicationId: p2, quantityRequested: 2),
+            RequestItem(publicationId: p3, quantityRequested: 3),
+            RequestItem(publicationId: p4, quantityRequested: 4),
+          ],
+        ));
+
+        final list = await dataSource.getRequestList();
+        final matches = list.where((e) => e.requestId == r.id).toList();
+
+        expect(matches.length, equals(1));
+        expect(matches.first.publicationCount, equals(4));
+        expect(matches.first.quantityRequested, equals(10));
+      });
+
+      test('maps createdAt maintaining UTC policy', () async {
+        final pubId = await insertSamplePublication();
+        final createdUtc = DateTime.utc(2026, 9, 24, 15, 30, 45);
+
+        final r = await dataSource.create(createTestRequest(
+          requesterId: 1,
+          createdAt: createdUtc,
+          items: [RequestItem(publicationId: pubId, quantityRequested: 1)],
+        ));
+
+        final list = await dataSource.getRequestList();
+        final item = list.firstWhere((e) => e.requestId == r.id);
+
+        expect(item.createdAt.isUtc, isTrue);
+        expect(item.createdAt.isAtSameMomentAs(createdUtc), isTrue);
       });
     });
   });

@@ -4,7 +4,9 @@ import '../../../../core/database/database_constants.dart';
 import '../../domain/request.dart';
 import '../../domain/request_exceptions.dart';
 import '../../domain/request_item.dart';
+import '../../domain/request_list_item.dart';
 import '../mappers/request_item_mapper.dart';
+import '../mappers/request_list_item_mapper.dart';
 import '../mappers/request_mapper.dart';
 
 abstract class RequestLocalDataSource {
@@ -13,6 +15,8 @@ abstract class RequestLocalDataSource {
   Future<List<Request>> getAll();
 
   Future<Request?> getById(int id);
+
+  Future<List<RequestListItem>> getRequestList();
 }
 
 class RequestLocalDataSourceImpl implements RequestLocalDataSource {
@@ -227,6 +231,51 @@ class RequestLocalDataSourceImpl implements RequestLocalDataSource {
           'Integridad referencial rota: la publicación con ID $pubId referenciada en la solicitud no existe.',
         );
       }
+    }
+  }
+
+  @override
+  Future<List<RequestListItem>> getRequestList() async {
+    try {
+      final db = await _appDatabase.database;
+
+      const sql = '''
+        SELECT
+          r.${DatabaseConstants.columnId} AS ${RequestListItemMapper.columnRequestId},
+          r.${DatabaseConstants.columnRequesterId} AS ${RequestListItemMapper.columnRequesterId},
+          req.${DatabaseConstants.columnName} AS ${RequestListItemMapper.columnRequesterName},
+          r.${DatabaseConstants.columnCreatedAt} AS ${RequestListItemMapper.columnCreatedAt},
+          COUNT(ri.${DatabaseConstants.columnId}) AS ${RequestListItemMapper.columnPublicationCount},
+          COALESCE(SUM(ri.${DatabaseConstants.columnQuantityRequested}), 0) AS ${RequestListItemMapper.columnQuantityRequested},
+          COALESCE(SUM(ri.${DatabaseConstants.columnQuantityFulfilled}), 0) AS ${RequestListItemMapper.columnQuantityFulfilled}
+        FROM ${DatabaseConstants.tableRequests} r
+        INNER JOIN ${DatabaseConstants.tableRequesters} req ON r.${DatabaseConstants.columnRequesterId} = req.${DatabaseConstants.columnId}
+        LEFT JOIN ${DatabaseConstants.tableRequestItems} ri ON r.${DatabaseConstants.columnId} = ri.${DatabaseConstants.columnRequestId}
+        GROUP BY
+          r.${DatabaseConstants.columnId},
+          r.${DatabaseConstants.columnRequesterId},
+          req.${DatabaseConstants.columnName},
+          r.${DatabaseConstants.columnCreatedAt}
+        ORDER BY
+          r.${DatabaseConstants.columnCreatedAt} DESC,
+          r.${DatabaseConstants.columnId} DESC;
+      ''';
+
+      final rows = await db.rawQuery(sql);
+      return rows.map(RequestListItemMapper.fromMap).toList();
+    } on DatabaseException catch (e) {
+      throw RequestPersistenceException(
+        'Error de persistencia en SQLite al listar la proyección de pedidos.',
+        e,
+      );
+    } catch (e) {
+      if (e is RequestException) {
+        rethrow;
+      }
+      throw RequestPersistenceException(
+        'Error inesperado al consultar la lista de pedidos en la base de datos.',
+        e,
+      );
     }
   }
 }

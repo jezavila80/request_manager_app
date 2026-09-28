@@ -9,3 +9,24 @@ enum RequestFulfillmentStatus {
   partiallyFulfilled,
   fulfilled,
 }
+
+/// Pure domain function calculating the fulfillment status of a request based on:
+/// - [itemCount]: Number of distinct publication items.
+/// - [quantityRequested]: Total units requested across all items.
+/// - [quantityFulfilled]: Total units fulfilled across all items.
+RequestFulfillmentStatus calculateRequestFulfillmentStatus({
+  required int itemCount,
+  required int quantityRequested,
+  required int quantityFulfilled,
+}) {
+  if (itemCount == 0) {
+    return RequestFulfillmentStatus.pending;
+  }
+  if (quantityFulfilled == 0) {
+    return RequestFulfillmentStatus.pending;
+  }
+  if (quantityFulfilled == quantityRequested) {
+    return RequestFulfillmentStatus.fulfilled;
+  }
+  return RequestFulfillmentStatus.partiallyFulfilled;
+}
