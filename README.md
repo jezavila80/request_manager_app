@@ -10,7 +10,7 @@ Una aplicación móvil diseñada para llevar el control interno de solicitudes d
 
 ## Versión actual
 
-**0.1.9+11**
+**0.1.10+12**
 
 Estado actual:
 - Base del proyecto y Design System completados.
@@ -20,7 +20,7 @@ Estado actual:
 - Búsqueda y autocompletado de publicaciones con debounce y prevención de repetidas (Fase 2.6).
 - Catálogo y selección persistente de solicitantes con normalización e identificación única (Fase 2.6.1).
 - Creación y persistencia inmediata de Draft Publications desde Nuevo Pedido (Fase 2.7).
-- Integración end-to-end de NewRequestPage con guardado atómico transaccional de pedidos.
+- Lista básica de pedidos (UI) con proyección optimizada RequestListItem, badges de fulfillment y refresco automático (Fase 2.8).
 
 ---
 
@@ -586,7 +586,7 @@ Cada publicación podrá contener:
 
 ## Fase 2 — Registro de pedidos
 
-### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1, 2.5, 2.6, 2.6.1 y 2.7 completadas)
+### Estado: EN DESARROLLO (Fases 2.1, 2.2, 2.3, 2.4, 2.4.1, 2.5, 2.6, 2.6.1, 2.7 y 2.8 completadas)
 
 ### Objetivo
 
@@ -614,7 +614,7 @@ Un pedido:
 * [x] **2.6 Búsqueda / autocompletado de publicaciones para el pedido (`NewRequestPage`, búsqueda combinada código/nombre, debounce 300 ms, stale-result protection, selección, cantidad, acumulación confirmada 2 + 3 = 5, resumen y guardado end-to-end).**
 * [x] **2.6.1 Catálogo y selección de solicitantes (`Requester`, normalización, SQLite v3, migración v2→v3, autocomplete, detección de duplicados exactos y advertencia de posibles coincidencias).**
 * [x] **2.7 Creación de Draft Publication desde pedido (`QuickDraftDialog`, creación rápida al no encontrar resultados en búsqueda, nombre obligatorio, código sin capturar, descripción/tipo/tamaño/versión opcionales, `Publication.quickDraft()` unificado con normalización, prevención de duplicados con `PublicationDuplicateChecker`, selección inmediata y retención del pedido en memoria).**
-* [ ] **2.8 Lista básica de pedidos (UI).**
+* [x] **2.8 Lista básica de pedidos (UI).**
 * [ ] **2.9 Detalle de pedido (UI).**
 * [ ] **2.10 Validación del flujo y persistencia real de pedidos.**
 
@@ -662,6 +662,27 @@ Un pedido:
 * **Persistencia inmediata**: El borrador se persiste directamente en `PublicationRepository` para obtener su `publication.id` real, permitiendo su referencia en los `RequestItem`.
 * **Integración con Nuevo Pedido**: Tras la creación o selección, la publicación queda seleccionada en `NewRequestPage` con cantidad inicial = 1, sin agregar automáticamente el ítem al pedido. El `Request` permanece en memoria hasta que el usuario decida guardarlo.
 * **Persistencia SQLite**: Mantiene estrictamente el esquema v3 sin migraciones adicionales.
+
+#### Fase 2.8 — Lista básica de pedidos (UI)
+* **`RequestsPage`**: Vista principal de pedidos integrada en la navegación de la aplicación (sustituyendo el mock previo en `DesignSystemPreviewPage`).
+* **Modelo de lectura y proyección (`RequestListItem`)**: Modelo inmutable optimizado para vistas de lista que contiene únicamente los datos de presentación requeridos: `requestId`, `requesterId`, `requesterName`, `createdAt`, `publicationCount`, `quantityRequested`, `quantityFulfilled` y `fulfillmentStatus` derivado, evitando hidratar innecesariamente agregados de dominio completos.
+* **Cálculo canónico de fulfillment (`calculateRequestFulfillmentStatus`)**: Regla pura de dominio compartida entre `Request.fulfillmentStatus` y `RequestListItem.fulfillmentStatus` con estados: `pending` (0 surtidas o sin publicaciones), `partiallyFulfilled` (entre 1 y < total) y `fulfilled` (100% surtidas).
+* **Consulta SQL única y agregada**: Implementada en `RequestLocalDataSource.getRequestList()` sobre `requests INNER JOIN requesters LEFT JOIN request_items` con `COUNT`, `SUM`, `COALESCE` y `ORDER BY created_at DESC, id DESC`, eliminando cualquier riesgo de consultas N+1.
+* **Componente `RequestListItemCard`**: Card reutilizable que presenta nombre del solicitante (con truncamiento visual si es extenso), badge de estado (`PENDIENTE`, `PARCIAL`, `COMPLETO`), fecha local legible (`formatShortDate`), resumen de cantidades y número identificador `#id`.
+* **Manejo de estados y refresco reactivo**: Soporta `AppLoadingIndicator`, `AppEmptyState`, `AppErrorState` con acción de reintento, `RefreshIndicator` para deslizamiento hacia abajo y refresco automático al regresar de una creación exitosa en `NewRequestPage`.
+
+#### Pendientes y mejoras futuras identificadas (post Fase 2.8)
+* **Búsqueda y filtrado de pedidos**:
+  - Actualmente `RequestsPage` muestra la lista en estricto orden cronológico descendente (`created_at DESC, id DESC`), pero todavía no dispone de búsqueda ni filtrado interactivo.
+  - Registrado como mejora futura a diseñar e implementar con posterioridad. Criterios a evaluar: ID de pedido, solicitante, fecha y estado de surtido (sin decidir aún UX ni implementar SQL/search).
+* **Edición y completado de Draft Publications (`DRAFT` $\rightarrow$ `COMPLETE`)**:
+  - Las publicaciones en borrador creadas desde Nuevo Pedido aparecen en el catálogo pero aún no existe interfaz para completar posteriormente sus datos oficiales.
+  - Flujo conceptual: `Draft Publication` $\rightarrow$ `identificación posterior` $\rightarrow$ `editar/completar la MISMA Publication` (`code`, `type`, `description`, `size`, `version`) $\rightarrow$ `COMPLETE`.
+  - Reglas aplicables: se preserva el mismo `Publication.id`; el `code` debe ser único global (case-insensitive); `COMPLETE` requiere `code` + `name` + `type` (`size` y `version` no determinan `COMPLETE`; `description` permanece opcional); reutilizar detección preventiva de duplicados.
+* **Resolución / reasignación futura de Draft contra Publicación existente**:
+  - Escenario futuro diferenciado (no confundir con editar el propio Draft): cuando se descubre posteriormente que un ítem de pedido que referenciaba un `Draft` en realidad corresponde a una `Publication` existente en catálogo.
+  - Flujo conceptual acordado: `RequestItem (publicationId -> Draft)` $\rightarrow$ `se identifica Publication existente` $\rightarrow$ `reemplazar/reasignar publicationId` preservando `RequestItem.id`, `quantityRequested` y `quantityFulfilled`.
+  - Reglas acordadas: si la publicación destino ya está presente en el mismo pedido, se rechaza la colisión (sin auto-merge); no se elimina automáticamente la publicación en borrador huérfana tras la reasignación.
 
 ---
 

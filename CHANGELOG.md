@@ -8,6 +8,25 @@ El proyecto utiliza versionamiento:
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-28
+
+### Added
+
+- Pantalla de lista real de pedidos (`RequestsPage`) que presenta las solicitudes registradas ordenadas cronológicamente de forma descendente (Fase 2.8).
+- Modelo de lectura y proyección ligera `RequestListItem` para optimizar la visualización de pedidos en listas sin hidratar agregados completos.
+- Consulta SQL agregada única y de alto rendimiento en `RequestLocalDataSource.getRequestList()` (`requests` INNER JOIN `requesters` LEFT JOIN `request_items` con `COUNT`, `SUM`, `COALESCE` y `ORDER BY created_at DESC, id DESC`), evitando consultas N+1.
+- Gestión completa de estados de interfaz: carga (`AppLoadingIndicator`), lista vacía (`AppEmptyState`), error con botón de reintento (`AppErrorState`) y actualización mediante `RefreshIndicator`.
+- Tarjetas de pedidos reutilizables (`RequestListItemCard`) con truncamiento visual de nombres largos, badge de estado, fecha local formateada y progreso de cantidades surtidas vs solicitadas.
+- Badges de estado de surtido (`PENDIENTE`, `PARCIAL`, `COMPLETO`) en `AppStatusBadge` según el avance de cantidades del pedido.
+- Refresco automático de la lista de pedidos tras el retorno exitoso de la creación de un nuevo pedido en `NewRequestPage`.
+
+### Changed
+
+- Reutilización de la regla pura de dominio `calculateRequestFulfillmentStatus` tanto en `Request.fulfillmentStatus` como en `RequestListItem.fulfillmentStatus`.
+- Pestaña Pedidos en `DesignSystemPreviewPage` conectada a la implementación real `RequestsPage`, eliminando el mock previo.
+- Componente `AppCard` adaptado para soportar interacción táctil mediante `InkWell` y `Material` cuando se proporciona el callback `onTap`.
+- Infraestructura de formato de fecha corta local (`AppDateTime.formatShortDate`) para la presentación visual amigable de fechas de creación.
+
 ## [0.1.9] - 2026-09-25
 
 ### Added
